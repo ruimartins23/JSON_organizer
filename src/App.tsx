@@ -1,0 +1,49 @@
+import { useState } from 'react';
+import { Dropzone } from './components/Dropzone';
+import { TimelineView } from './components/TimelineView';
+import { parseAITrainingJSON } from './utils/parser';
+import type { OrganizedTimeline, EnvironmentMode } from './utils/parser';
+import { BrainCircuit } from 'lucide-react';
+
+function App() {
+  const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
+
+  const handleFileParsed = (data: any, mode: EnvironmentMode) => {
+    const parsed = parseAITrainingJSON(data, mode);
+    setTimelineData(parsed);
+  };
+
+  const reset = () => {
+    setTimelineData(null);
+  };
+
+  return (
+    <div className="gradient-bg app-container">
+      <header className="header animate-fade-in">
+        <div className="header-icon-container glass">
+          <BrainCircuit className="header-icon" />
+        </div>
+        <h1>
+          JSON <span className="gradient-text">Extractor</span>
+        </h1>
+        <p>
+          Upload your training JSON files to visualize functions, responses and transfers
+        </p>
+      </header>
+
+      <main className="main-content">
+        {!timelineData ? (
+          <Dropzone onFileParsed={handleFileParsed} />
+        ) : (
+          <TimelineView data={timelineData} onReset={reset} />
+        )}
+      </main>
+      
+      <footer className="footer">
+        <p>Single & Multi Agent Support</p>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
