@@ -27,7 +27,7 @@ function App() {
           JSON <span className="gradient-text">Extractor</span>
         </h1>
         <p>
-          Upload your JSON files to visualize functions, responses and transfers
+          Upload your JSON files to visualize functions, responses and transfers!
         </p>
       </header>
 

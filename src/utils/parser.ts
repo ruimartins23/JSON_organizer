@@ -41,7 +41,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
 
     // Change this line if function synxtax changes in the future
     else if (obj.pythonfunctiontool) {
-       toolName = 'pythonfunctiontool'; //CSHARPFUNCTIONTOOL
+       toolName = 'pythonfunctiontool'; 
        toolArgs = obj.pythonfunctiontool.args || obj.pythonfunctiontool.arguments;
     }
     else if (obj.endsessiontool) {
