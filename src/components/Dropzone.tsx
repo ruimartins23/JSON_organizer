@@ -34,8 +34,8 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   };
 
   const processFile = (file: File) => {
-    if (!file.name.endsWith('.json') && !file.name.endsWith('.txt')) {
-      setError('Please upload a valid .json or .txt file.');
+    if (!file.name.endsWith('.txt')) {
+      setError('Please upload a valid .txt file.');
       return;
     }
     setError(null);
@@ -115,9 +115,9 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           <div className="dropzone-icon-bg">
             <Upload className="dropzone-icon" />
           </div>
-          <h3 className="dropzone-title text-foreground">Upload AI Training Data</h3>
+          <h3 className="dropzone-title text-foreground">Upload JSON File</h3>
           <p className="dropzone-subtitle">
-            Drag and drop your .json or .txt file here, or click to browse
+            Drag and drop your .txt file here, or click to browse
           </p>
           
           <label className="btn-primary">
@@ -125,7 +125,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             Select File
             <input 
               type="file" 
-              accept=".json,.txt" 
+              accept=".txt" 
               className="hidden-input" 
               onChange={handleFileInput}
             />
