@@ -21,7 +21,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
   // Helper to generate a unique ID
   const generateId = () => Math.random().toString(36).substring(2, 9);
 
-  // Recursively search the JSON for interesting objects
+  // Recursively search the JSON for useful objects
   function traverse(obj: any) {
     if (!obj || typeof obj !== 'object') return;
 
@@ -38,8 +38,10 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
        toolName = obj.toolCall.displayName || obj.toolCall.name || 'toolCall';
        toolArgs = obj.toolCall.args || obj.toolCall.arguments;
     }
+
+    // Change this line if function synxtax changes in the future
     else if (obj.pythonfunctiontool) {
-       toolName = 'pythonfunctiontool';
+       toolName = 'pythonfunctiontool'; // 
        toolArgs = obj.pythonfunctiontool.args || obj.pythonfunctiontool.arguments;
     }
     else if (obj.endsessiontool) {
@@ -63,6 +65,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
        toolArgs = obj.arguments || obj.args;
     }
 
+    // Extract ID from toolResponses and toolCalls to later sync them
     const extractId = (o: any) => {
       const directId = o.id || o.tool_call_id || o.toolCallId || o['tool call id'] || o.call_id || o.callId;
       if (directId) return directId;
@@ -74,17 +77,15 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
 
     // Apply strict logic based on mode using normalized strings
     if (toolName) {
-      const normalizedName = toolName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
       // Identify the abstract tool category
       let category = '';
       const typeStr = typeof obj.type === 'string' ? obj.type.toLowerCase() : '';
       
-      if (obj.toolCall || normalizedName.includes('toolcall') || typeStr.includes('toolcall')) {
+      if (obj.toolCall) {
         category = 'toolCall';
-      } else if (normalizedName.includes('pythonfunction') || obj.pythonfunctiontool || obj.pythonfunction || typeStr.includes('pythonfunction')) {
+      } else if (typeStr === 'pythonfunctiontool') {
         category = 'pythonfunctiontool';
-      } else if (normalizedName.includes('endsession') || obj.endsessiontool || obj.endsession || typeStr.includes('endsession')) {
+      } else if (typeStr === 'endsessiontool') {
         category = 'endsessiontool';
       } else if (typeStr === 'transfertoagenttool') {
         category = 'transfertoagenttool';
