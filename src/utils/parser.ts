@@ -90,6 +90,22 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
         category = 'transfertoagenttool';
       }
 
+      // Eagerly try to extract a bundled response if it lives in the same object
+      let toolResp: any = obj.response || obj.toolResponse || obj.tool_response || obj.ToolResponse || obj.content;
+      
+      if (!toolResp && obj.toolCall) {
+        toolResp = obj.toolCall.response || obj.toolCall.toolResponse || obj.toolCall.tool_response || obj.toolCall.content;
+      }
+      if (!toolResp && obj.pythonfunctiontool) {
+        toolResp = obj.pythonfunctiontool.response || obj.pythonfunctiontool.toolResponse || obj.pythonfunctiontool.tool_response || obj.pythonfunctiontool.content;
+      }
+      
+      if (toolResp && typeof toolResp === 'object' && toolResp.response) {
+        toolResp = toolResp.response;
+      } else if (toolResp && typeof toolResp === 'object' && toolResp.content) {
+        toolResp = toolResp.content;
+      }
+
       if (mode === 'pre-prod') {
         // Pre-prod: ONLY toolCall
         if (category === 'toolCall' || obj.toolCall) {
@@ -98,6 +114,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'function',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         }
@@ -110,6 +127,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'function',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         } else if (category === 'endsessiontool') {
@@ -118,6 +136,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'endsession',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         }
@@ -130,6 +149,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'function',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         } else if (category === 'endsessiontool') {
@@ -138,6 +158,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'endsession',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         } else if (category === 'transfertoagenttool') {
@@ -146,6 +167,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              type: 'transfer',
              toolName: toolName,
              arguments: toolArgs,
+             response: toolResp,
              raw: obj
            });
         }
