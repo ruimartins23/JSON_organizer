@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Wrench, PowerOff, ArrowRightLeft, ChevronDown, ChevronRight, Activity, Code, Server, CheckCircle2 } from 'lucide-react';
+import { Wrench, PowerOff, ArrowRightLeft, ChevronDown, ChevronRight, Activity, Code, Server, CheckCircle2, Copy } from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -8,6 +8,53 @@ interface TimelineViewProps {
 }
 
 export function TimelineView({ data, onReset }: TimelineViewProps) {
+  const [copyStatus, setCopyStatus] = useState('Copy Summary');
+
+  const summaryText = useMemo(() => {
+    let text = '';
+    let counter = 1;
+
+    if (data.agentType === 'prod multi agent') {
+      let currentAgent = '';
+
+      data.events.forEach(event => {
+        if (event.type === 'transfer') {
+          const from = event.raw?.agent || 'Unknown Agent';
+          const to = event.arguments?.agent_name || event.arguments?.target || event.arguments?.destination || event.arguments?.agent || 'Unknown Agent';
+          
+          if (text.length > 0 && !text.endsWith('\n\n')) text += (text.endsWith('\n') ? '\n' : '\n\n');
+          text += `${event.toolName || 'transfer_to_agent'} (${from} to ${to})\n`;
+          currentAgent = ''; // Force the next function to print its agent header
+        } else if (event.type === 'function' || event.type === 'endsession') {
+          const agent = event.raw?.agent || 'Unknown Agent';
+          if (agent !== currentAgent) {
+            if (text.length > 0 && !text.endsWith('\n\n')) text += (text.endsWith('\n') ? '\n' : '\n\n');
+            text += `${agent}:\n`;
+            currentAgent = agent;
+          }
+          text += `${counter}. ${event.toolName || 'Unknown Function'} executed\n`;
+          counter++;
+        }
+      });
+    } else {
+      data.events.forEach(event => {
+        if (event.type === 'function' || event.type === 'endsession') {
+          text += `${counter}. ${event.toolName || 'Unknown Function'} executed\n`;
+          counter++;
+        }
+      });
+    }
+
+    return text.trim();
+  }, [data.events, data.agentType]);
+
+  const handleCopy = () => {
+    if (!summaryText) return;
+    navigator.clipboard.writeText(summaryText);
+    setCopyStatus('Copied!');
+    setTimeout(() => setCopyStatus('Copy Summary'), 2000);
+  };
+
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
       <div className="timeline-header glass">
@@ -32,9 +79,36 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             </span>
           </div>
         </div>
-        <button onClick={onReset} className="btn-secondary">
+        <button onClick={onReset} className="btn-primary">
           Upload New File
         </button>
+      </div>
+
+      <div className="summary-box glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>Timeline Summary</h3>
+          <button onClick={handleCopy} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+            <Copy style={{ width: '1rem', height: '1rem' }} />
+            {copyStatus}
+          </button>
+        </div>
+        <textarea 
+          readOnly 
+          value={summaryText} 
+          style={{ 
+            width: '100%', 
+            minHeight: '200px', 
+            background: 'var(--bg-glass)', 
+            color: 'var(--text-foreground)', 
+            border: '1px solid var(--border-glass)', 
+            borderRadius: '0.5rem', 
+            padding: '1rem', 
+            resize: 'vertical',
+            fontFamily: 'monospace',
+            fontSize: '0.9rem',
+            lineHeight: '1.5'
+          }} 
+        />
       </div>
 
       <div className="timeline-list">
