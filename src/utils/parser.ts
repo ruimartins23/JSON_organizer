@@ -86,7 +86,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
         category = 'pythonfunctiontool';
       } else if (normalizedName.includes('endsession') || obj.endsessiontool || obj.endsession || typeStr.includes('endsession')) {
         category = 'endsessiontool';
-      } else if (normalizedName.includes('transfertoagent') || obj.transfertoagenttool || obj.transfer || typeStr.includes('transfertoagent')) {
+      } else if (typeStr === 'transfertoagenttool') {
         category = 'transfertoagenttool';
       }
 
