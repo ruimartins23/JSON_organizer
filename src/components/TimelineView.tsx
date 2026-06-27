@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Wrench, PowerOff, ArrowRightLeft, ChevronDown, ChevronRight, Activity, Code, Server, CheckCircle2, Copy, MessageSquare } from 'lucide-react';
+import { Wrench, PowerOff, ArrowRightLeft, ChevronDown, ChevronRight, Activity, Code, Server, CheckCircle2, Copy, MessageSquare, Download } from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -11,6 +11,9 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [copySummaryStatus, setCopySummaryStatus] = useState('Copy Summary');
   const [copyTranscriptStatus, setCopyTranscriptStatus] = useState('Copy Transcript');
   const [copySessionStatus, setCopySessionStatus] = useState('Copy');
+  
+  const [summaryFileName, setSummaryFileName] = useState('Telco-AM-(task number)-Clear-JSON-A.txt');
+  const [transcriptFileName, setTranscriptFileName] = useState('Telco-AM-(task number)-Clear-Transcript-A.txt');
   
   const [showTranscripts, setShowTranscripts] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
@@ -98,6 +101,33 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     setTimeout(() => setCopySessionStatus('Copy'), 2000);
   };
 
+  const downloadFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadSummary = () => {
+    if (!data.rawJsonText) return;
+    downloadFile(data.rawJsonText, summaryFileName);
+  };
+
+  const handleDownloadTranscript = () => {
+    if (!transcriptText) return;
+    downloadFile(transcriptText, transcriptFileName);
+  };
+
+  const handleDownloadAll = () => {
+    handleDownloadSummary();
+    handleDownloadTranscript();
+  };
+
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
       <div className="timeline-header glass">
@@ -152,9 +182,58 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         )}
       </div>
 
+      <div className="export-section glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.8rem' }}>
+          <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Download style={{ width: '1.2rem', height: '1.2rem', color: 'var(--primary)' }} />
+            Export Files
+          </h3>
+          <button onClick={handleDownloadAll} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1rem' }}>
+            <Download style={{ width: '1rem', height: '1rem' }} />
+            Download Both
+          </button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-glass)', padding: '1rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Raw JSON File</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Downloads the JSON</span>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <input 
+                type="text" 
+                value={summaryFileName} 
+                onChange={(e) => setSummaryFileName(e.target.value)}
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem', minWidth: 0 }}
+              />
+              <button onClick={handleDownloadSummary} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem' }}>
+                <Download style={{ width: '1rem', height: '1rem' }} />
+                JSON
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-glass)', padding: '1rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Transcript Text</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Download the transcript</span>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <input 
+                type="text" 
+                value={transcriptFileName} 
+                onChange={(e) => setTranscriptFileName(e.target.value)}
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem', minWidth: 0 }}
+              />
+              <button onClick={handleDownloadTranscript} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem' }}>
+                <Download style={{ width: '1rem', height: '1rem' }} />
+                TXT
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div className="summary-box glass" style={{ padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>Function & Transfer Summary</h3>
             <button onClick={handleCopySummary} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
               <Copy style={{ width: '1rem', height: '1rem' }} />
@@ -182,7 +261,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         </div>
 
         <div className="summary-box glass" style={{ padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>Transcript</h3>
             <button onClick={handleCopyTranscript} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
               <Copy style={{ width: '1rem', height: '1rem' }} />

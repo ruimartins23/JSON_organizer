@@ -22,6 +22,7 @@ export interface ParsedEvent {
 export interface OrganizedTimeline {
   agentType: EnvironmentMode;
   sessionId?: string;
+  rawJsonText?: string;
   events: ParsedEvent[];
 }
 
@@ -379,6 +380,7 @@ export function parseAITrainingJSON(
   return {
     agentType: mode,
     sessionId: sessionId,
+    rawJsonText: JSON.stringify(data, null, 2),
     events: finalEvents
   };
 }
