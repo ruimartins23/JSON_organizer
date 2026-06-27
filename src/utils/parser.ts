@@ -16,6 +16,7 @@ export interface ParsedEvent {
   messageContent?: string;
   raw: any;
   timestamp?: string;
+  duplicateCount?: number;
 }
 
 export interface OrganizedTimeline {
@@ -330,8 +331,17 @@ export function parseAITrainingJSON(
     if (event.type === 'function') {
       functionMap.set(event.id, event);
       finalEvents.push(event);
-    } else if (event.type === 'transfer' || event.type === 'endsession') {
+    } else if (event.type === 'transfer') {
       finalEvents.push(event);
+    } else if (event.type === 'endsession') {
+      // Find if we already have an endsession with this exact same non-random ID
+      const existingEndSession = finalEvents.find(e => e.type === 'endsession' && e.id === event.id && e.id && e.id.length > 7);
+      if (existingEndSession) {
+        existingEndSession.duplicateCount = (existingEndSession.duplicateCount || 1) + 1;
+      } else {
+        event.duplicateCount = 1;
+        finalEvents.push(event);
+      }
     } else if (event.type === 'message') {
       const lastEvent = finalEvents[finalEvents.length - 1];
       if (lastEvent && lastEvent.type === 'message' && lastEvent.messageRole === event.messageRole) {

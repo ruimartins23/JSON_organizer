@@ -294,8 +294,13 @@ function TimelineItem({ event, index }: { event: ParsedEvent, index: number }) {
                 </span>
               )}
             </div>
-            <h3 className="timeline-card-title text-foreground">
-              {event.type === 'message' ? `Transcript Log` : (event.toolName || (event.type === 'tool_response' ? 'Tool Response Output' : 'Unknown Tool'))}
+            <h3 className="timeline-card-title text-foreground" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <span>{event.type === 'message' ? `Transcript Log` : (event.toolName || (event.type === 'tool_response' ? 'Tool Response Output' : 'Unknown Tool'))}</span>
+              {event.duplicateCount && event.duplicateCount > 1 && (
+                <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-secondary)', background: 'var(--bg-glass)', padding: '0.1rem 0.5rem', borderRadius: '1rem', border: '1px solid var(--border-glass)' }}>
+                  (function executed {event.duplicateCount} times with the same tool call id)
+                </span>
+              )}
             </h3>
             {event.type === 'transfer' && (
               <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
