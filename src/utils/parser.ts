@@ -22,6 +22,7 @@ export interface ParsedEvent {
 export interface OrganizedTimeline {
   agentType: EnvironmentMode;
   sessionId?: string;
+  duration?: string;
   rawJsonText?: string;
   events: ParsedEvent[];
 }
@@ -45,6 +46,26 @@ export function parseAITrainingJSON(
   const sessionMatch = stringifiedData.match(/\/([^/]+)\/agent-turn/);
   if (sessionMatch && sessionMatch[1]) {
     sessionId = sessionMatch[1];
+  }
+
+  // Calculate duration from eventTime fields
+  let durationStr: string | undefined = undefined;
+  const eventTimeRegex = /"eventTime"\s*:\s*"([^"]+)"/g;
+  let match;
+  const eventTimes: string[] = [];
+  while ((match = eventTimeRegex.exec(stringifiedData)) !== null) {
+    eventTimes.push(match[1]);
+  }
+  if (eventTimes.length > 0) {
+    const dates = eventTimes.map(t => new Date(t).getTime()).filter(t => !isNaN(t));
+    if (dates.length > 0) {
+      const min = Math.min(...dates);
+      const max = Math.max(...dates);
+      const diffMs = max - min;
+      const minutes = Math.floor(diffMs / 60000);
+      const seconds = Math.floor((diffMs % 60000) / 1000);
+      durationStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
   }
 
   // Recursively search the JSON for useful objects
@@ -380,6 +401,7 @@ export function parseAITrainingJSON(
   return {
     agentType: mode,
     sessionId: sessionId,
+    duration: durationStr,
     rawJsonText: JSON.stringify(data, null, 2),
     events: finalEvents
   };

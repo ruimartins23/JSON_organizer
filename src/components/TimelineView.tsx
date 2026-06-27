@@ -11,6 +11,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [copySummaryStatus, setCopySummaryStatus] = useState('Copy Summary');
   const [copyTranscriptStatus, setCopyTranscriptStatus] = useState('Copy Transcript');
   const [copySessionStatus, setCopySessionStatus] = useState('Copy');
+  const [copyDurationStatus, setCopyDurationStatus] = useState('Copy');
   
   const [summaryFileName, setSummaryFileName] = useState('Telco-AM-(task number)-Clear-JSON-A.txt');
   const [transcriptFileName, setTranscriptFileName] = useState('Telco-AM-(task number)-Clear-Transcript-A.txt');
@@ -101,6 +102,13 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     setTimeout(() => setCopySessionStatus('Copy'), 2000);
   };
 
+  const handleCopyDuration = () => {
+    if (!data.duration) return;
+    navigator.clipboard.writeText(data.duration);
+    setCopyDurationStatus('Copied!');
+    setTimeout(() => setCopyDurationStatus('Copy'), 2000);
+  };
+
   const downloadFile = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -147,14 +155,6 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
                data.agentType === 'prod single agent' ? 'Prod Single Agent' : 
                data.agentType === 'pre-prod' ? 'Pre-Prod' : 'Unknown'}
             </span>
-            {data.sessionId && (
-              <span style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Session ID: <strong className="text-foreground" style={{ fontFamily: 'monospace' }}>{data.sessionId}</strong>
-                <button onClick={handleCopySession} className="btn-secondary" style={{ padding: '0.1rem 0.4rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  <Copy style={{ width: '0.7rem', height: '0.7rem' }} /> {copySessionStatus}
-                </button>
-              </span>
-            )}
             <span style={{ marginLeft: '1rem' }}>
               Events Found: <strong className="text-foreground">{data.events.length}</strong>
             </span>
@@ -181,6 +181,33 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           </div>
         )}
       </div>
+
+      {(data.sessionId || data.duration) && (
+        <div className="metadata-section glass" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem', borderRadius: '1rem', display: 'flex', gap: '2.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {data.sessionId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>SESSION ID</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <strong className="text-foreground" style={{ fontFamily: 'monospace', fontSize: '1.2rem', letterSpacing: '1px' }}>{data.sessionId}</strong>
+                <button onClick={handleCopySession} className="btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Copy style={{ width: '0.8rem', height: '0.8rem' }} /> {copySessionStatus}
+                </button>
+              </div>
+            </div>
+          )}
+          {data.duration && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>DURATION (MM:SS)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <strong className="text-foreground" style={{ fontFamily: 'monospace', fontSize: '1.2rem', letterSpacing: '1px' }}>{data.duration}</strong>
+                <button onClick={handleCopyDuration} className="btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Copy style={{ width: '0.8rem', height: '0.8rem' }} /> {copyDurationStatus}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="export-section glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.8rem' }}>
