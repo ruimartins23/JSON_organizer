@@ -40,10 +40,10 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
       data.events.forEach(event => {
         if (event.type === 'transfer') {
           const from = event.raw?.agent || 'Unknown Agent';
-          const to = event.arguments?.agent_name || event.arguments?.target || event.arguments?.destination || event.arguments?.agent || 'Unknown Agent';
+          const to = event.arguments?.displayName || event.arguments?.targetAgent || event.arguments?.agent_name || event.arguments?.target || event.arguments?.destination || event.arguments?.agent || 'Unknown Agent';
           
           if (summary.length > 0 && !summary.endsWith('\n\n')) summary += (summary.endsWith('\n') ? '\n' : '\n\n');
-          summary += `${event.toolName || 'transfer_to_agent'} (${from} to ${to})\n`;
+          summary += `transfer_to_agent (${from} to ${to})\n`;
           currentAgent = ''; // Force the next function to print its agent header
         } else if (event.type === 'function' || event.type === 'endsession') {
           const agent = event.raw?.agent || 'Unknown Agent';
