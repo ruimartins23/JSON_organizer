@@ -77,19 +77,19 @@ export function parseAITrainingJSON(
        toolName = obj[config.transferKeyword].displayName || obj[config.transferKeyword].name || config.transferKeyword;
        toolArgs = obj[config.transferKeyword].args || obj[config.transferKeyword].arguments || obj[config.transferKeyword];
     }
-    else if (obj.pythonfunctiontool) {
+    else if (config.functionKeyword === 'PythonFunctionTool' && obj.pythonfunctiontool) {
        toolName = 'pythonfunctiontool'; 
        toolArgs = obj.pythonfunctiontool.args || obj.pythonfunctiontool.arguments;
     }
-    else if (obj.endsessiontool) {
+    else if (config.endSessionKeyword === 'EndSessionTool' && obj.endsessiontool) {
        toolName = 'endsessiontool';
        toolArgs = obj.endsessiontool.args || obj.endsessiontool.arguments;
     }
-    else if (obj.transfertoagenttool) {
+    else if (config.transferKeyword === 'TransferToAgentTool' && obj.transfertoagenttool) {
        toolName = 'transfertoagenttool';
        toolArgs = obj.transfertoagenttool.args || obj.transfertoagenttool.arguments;
     }
-    else if (obj.agentTransfer) {
+    else if (config.transferKeyword === 'TransferToAgentTool' && obj.agentTransfer) {
        toolName = obj.agentTransfer.displayName || obj.agentTransfer.targetAgent || 'agentTransfer';
        toolArgs = obj.agentTransfer;
     }
@@ -155,11 +155,11 @@ export function parseAITrainingJSON(
           category = 'toolCall';
         }
       } else {
-        if (isConfigEndSession || typeStr === 'endsessiontool' || obj.endsessiontool) {
+        if (isEndSessionName || isConfigEndSession || (config.endSessionKeyword === 'EndSessionTool' && (typeStr === 'endsessiontool' || obj.endsessiontool))) {
           category = 'endsessiontool';
-        } else if (isConfigTransfer || obj.transfertoagenttool || obj.agentTransfer) {
+        } else if (isConfigTransfer || (config.transferKeyword === 'TransferToAgentTool' && (obj.transfertoagenttool || obj.agentTransfer))) {
           category = 'transfertoagenttool';
-        } else if (isConfigFunction) {
+        } else if (isConfigFunction || (config.functionKeyword === 'PythonFunctionTool' && obj.pythonfunctiontool)) {
           category = 'pythonfunctiontool';
         }
       }
