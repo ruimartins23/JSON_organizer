@@ -1,11 +1,19 @@
 export type EnvironmentMode = 'pre-prod' | 'prod single agent' | 'prod multi agent';
 
+export interface ParserConfig {
+  functionKeyword: string;
+  transferKeyword: string;
+  endSessionKeyword: string;
+}
+
 export interface ParsedEvent {
   id: string;
-  type: 'function' | 'transfer' | 'endsession' | 'tool_response';
+  type: 'function' | 'transfer' | 'endsession' | 'tool_response' | 'message';
   toolName?: string;
   arguments?: any;
   response?: any;
+  messageRole?: string;
+  messageContent?: string;
   raw: any;
   timestamp?: string;
 }
@@ -15,20 +23,30 @@ export interface OrganizedTimeline {
   events: ParsedEvent[];
 }
 
-export function parseAITrainingJSON(data: any, mode: EnvironmentMode): OrganizedTimeline {
+export function parseAITrainingJSON(
+  data: any, 
+  mode: EnvironmentMode, 
+  config: ParserConfig = { functionKeyword: 'PythonFunctionTool', transferKeyword: 'TransferToAgentTool', endSessionKeyword: 'EndSessionTool' }
+): OrganizedTimeline {
   const events: ParsedEvent[] = [];
   
   // Helper to generate a unique ID
   const generateId = () => Math.random().toString(36).substring(2, 9);
 
+  // Check if this JSON has the new diagnosticInfo chunks format
+  const stringifiedData = JSON.stringify(data);
+  const hasDiagnosticMessages = stringifiedData.includes('"diagnosticInfo"') && stringifiedData.includes('"chunks"');
+
   // Recursively search the JSON for useful objects
-  function traverse(obj: any) {
+  function traverse(obj: any, parentAgent?: string, structuralKey?: string) {
     if (!obj || typeof obj !== 'object') return;
 
     if (Array.isArray(obj)) {
-      obj.forEach(traverse);
+      obj.forEach((item) => traverse(item, parentAgent, structuralKey));
       return;
     }
+
+    const currentAgent = obj.agent || obj.role || obj.agentName || parentAgent;
 
     // Identify tool name and arguments explicitly
     let toolName = '';
@@ -38,8 +56,18 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
        toolName = obj.toolCall.displayName || obj.toolCall.name || 'toolCall';
        toolArgs = obj.toolCall.args || obj.toolCall.arguments;
     }
-
-    // Change this line if function synxtax changes in the future
+    else if (config.functionKeyword && obj[config.functionKeyword]) {
+       toolName = obj[config.functionKeyword].displayName || obj[config.functionKeyword].name || config.functionKeyword;
+       toolArgs = obj[config.functionKeyword].args || obj[config.functionKeyword].arguments || obj[config.functionKeyword];
+    }
+    else if (config.endSessionKeyword && obj[config.endSessionKeyword]) {
+       toolName = obj[config.endSessionKeyword].displayName || obj[config.endSessionKeyword].name || config.endSessionKeyword;
+       toolArgs = obj[config.endSessionKeyword].args || obj[config.endSessionKeyword].arguments || obj[config.endSessionKeyword];
+    }
+    else if (config.transferKeyword && obj[config.transferKeyword]) {
+       toolName = obj[config.transferKeyword].displayName || obj[config.transferKeyword].name || config.transferKeyword;
+       toolArgs = obj[config.transferKeyword].args || obj[config.transferKeyword].arguments || obj[config.transferKeyword];
+    }
     else if (obj.pythonfunctiontool) {
        toolName = 'pythonfunctiontool'; 
        toolArgs = obj.pythonfunctiontool.args || obj.pythonfunctiontool.arguments;
@@ -51,6 +79,10 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
     else if (obj.transfertoagenttool) {
        toolName = 'transfertoagenttool';
        toolArgs = obj.transfertoagenttool.args || obj.transfertoagenttool.arguments;
+    }
+    else if (obj.agentTransfer) {
+       toolName = obj.agentTransfer.displayName || obj.agentTransfer.targetAgent || 'agentTransfer';
+       toolArgs = obj.agentTransfer;
     }
     else if (obj.functionCall) {
        toolName = obj.functionCall.name;
@@ -80,15 +112,47 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
       // Identify the abstract tool category
       let category = '';
       const typeStr = typeof obj.type === 'string' ? obj.type.toLowerCase() : '';
+      const funcKeyLower = config.functionKeyword ? config.functionKeyword.toLowerCase() : '';
+      const transKeyLower = config.transferKeyword ? config.transferKeyword.toLowerCase() : '';
+      const endSessKeyLower = config.endSessionKeyword ? config.endSessionKeyword.toLowerCase() : '';
       
-      if (obj.toolCall) {
-        category = 'toolCall';
-      } else if (typeStr === 'pythonfunctiontool') {
-        category = 'pythonfunctiontool';
-      } else if (typeStr === 'endsessiontool') {
-        category = 'endsessiontool';
-      } else if (typeStr === 'transfertoagenttool') {
-        category = 'transfertoagenttool';
+      const isEndSessionName = toolName.toLowerCase() === 'end_session' || toolName.toLowerCase() === 'endsession';
+
+      const isConfigEndSession = config.endSessionKeyword !== config.functionKeyword && config.endSessionKeyword && (
+        typeStr === endSessKeyLower || 
+        obj[config.endSessionKeyword] || 
+        obj[endSessKeyLower] || 
+        (endSessKeyLower === 'toolcall' && obj.toolCall && isEndSessionName) ||
+        (endSessKeyLower === funcKeyLower && isEndSessionName)
+      );
+
+      const isConfigTransfer = config.transferKeyword && (
+        typeStr === transKeyLower || 
+        obj[config.transferKeyword] || 
+        obj[transKeyLower] ||
+        (transKeyLower === 'toolcall' && obj.toolCall && toolName.toLowerCase().includes('transfer')) ||
+        (transKeyLower === funcKeyLower && toolName.toLowerCase().includes('transfer'))
+      );
+
+      const isConfigFunction = !isConfigEndSession && !isConfigTransfer && config.functionKeyword && (
+        typeStr === funcKeyLower || 
+        obj[config.functionKeyword] || 
+        obj[funcKeyLower] || 
+        (funcKeyLower === 'toolcall' && obj.toolCall)
+      );
+
+      if (mode === 'pre-prod') {
+        if (isConfigFunction || obj.toolCall) {
+          category = 'toolCall';
+        }
+      } else {
+        if (isConfigEndSession || typeStr === 'endsessiontool' || obj.endsessiontool) {
+          category = 'endsessiontool';
+        } else if (isConfigTransfer || obj.transfertoagenttool || obj.agentTransfer) {
+          category = 'transfertoagenttool';
+        } else if (isConfigFunction) {
+          category = 'pythonfunctiontool';
+        }
       }
 
       // Eagerly try to extract a bundled response if it lives in the same object
@@ -116,7 +180,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         }
       } 
@@ -129,7 +193,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
            events.push({
@@ -138,7 +202,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         }
       }
@@ -151,7 +215,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
            events.push({
@@ -160,7 +224,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'transfertoagenttool') {
            events.push({
@@ -169,7 +233,7 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
-             raw: obj
+             raw: { agent: currentAgent, ...obj }
            });
         }
       }
@@ -198,14 +262,52 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
         id: extractId(obj) || generateId(),
         type: 'tool_response',
         response: responseContent,
-        raw: obj
+        raw: { agent: currentAgent, ...obj }
        });
+    }
+
+    // Extract Transcript / Message Events
+    let role = '';
+    let content = '';
+
+    if (hasDiagnosticMessages) {
+      // In new multi-agent format, prioritize transcript inside chunks to capture agent names,
+      // and explicitly ignore the top-level recognitionResult/sessionOutput to avoid duplicates.
+      if (typeof obj.transcript === 'string' && structuralKey === 'chunks') {
+        role = currentAgent || 'user';
+        content = obj.transcript;
+      }
+    } else {
+      // Legacy format fallback
+      if (obj.recognitionResult && typeof obj.recognitionResult.transcript === 'string') {
+        role = 'user';
+        content = obj.recognitionResult.transcript;
+      } else if (obj.sessionOutput && typeof obj.sessionOutput.text === 'string') {
+        role = 'agent';
+        content = obj.sessionOutput.text;
+      } else if (typeof obj.role === 'string' && typeof obj.content === 'string') {
+        role = obj.role;
+        content = obj.content;
+      } else if (obj.message && typeof obj.message.content === 'string') {
+        role = obj.message.role || 'system';
+        content = obj.message.content;
+      }
+    }
+
+    if (content && content.trim() !== '' && !isToolResponse && obj.role !== 'tool' && !obj.toolCall && !obj.functionCall && !toolName) {
+      events.push({
+        id: extractId(obj) || generateId(),
+        type: 'message',
+        messageRole: role || 'system',
+        messageContent: content,
+        raw: { agent: currentAgent, ...obj }
+      });
     }
 
     // Continue traversing down to find nested tool calls (e.g., in messages array)
     for (const key of Object.keys(obj)) {
       if (typeof obj[key] === 'object') {
-        traverse(obj[key]);
+        traverse(obj[key], currentAgent, key);
       }
     }
   }
@@ -222,6 +324,13 @@ export function parseAITrainingJSON(data: any, mode: EnvironmentMode): Organized
       finalEvents.push(event);
     } else if (event.type === 'transfer' || event.type === 'endsession') {
       finalEvents.push(event);
+    } else if (event.type === 'message') {
+      const lastEvent = finalEvents[finalEvents.length - 1];
+      if (lastEvent && lastEvent.type === 'message' && lastEvent.messageRole === event.messageRole) {
+        lastEvent.messageContent = (lastEvent.messageContent || '') + (event.messageContent || '');
+      } else {
+        finalEvents.push(event);
+      }
     } else if (event.type === 'tool_response') {
       if (functionMap.has(event.id)) {
         const funcEvent = functionMap.get(event.id)!;

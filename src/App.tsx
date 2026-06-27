@@ -8,8 +8,8 @@ import { BrainCircuit } from 'lucide-react';
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
 
-  const handleFileParsed = (data: any, mode: EnvironmentMode) => {
-    const parsed = parseAITrainingJSON(data, mode);
+  const handleFileParsed = (data: any, mode: EnvironmentMode, config: any) => {
+    const parsed = parseAITrainingJSON(data, mode, config);
     setTimelineData(parsed);
   };
 
