@@ -20,6 +20,7 @@ export interface ParsedEvent {
 
 export interface OrganizedTimeline {
   agentType: EnvironmentMode;
+  sessionId?: string;
   events: ParsedEvent[];
 }
 
@@ -36,6 +37,13 @@ export function parseAITrainingJSON(
   // Check if this JSON has the new diagnosticInfo chunks format
   const stringifiedData = JSON.stringify(data);
   const hasDiagnosticMessages = stringifiedData.includes('"diagnosticInfo"') && stringifiedData.includes('"chunks"');
+
+  // Attempt to extract session ID from agent-turn URIs
+  let sessionId: string | undefined = undefined;
+  const sessionMatch = stringifiedData.match(/\/([^/]+)\/agent-turn/);
+  if (sessionMatch && sessionMatch[1]) {
+    sessionId = sessionMatch[1];
+  }
 
   // Recursively search the JSON for useful objects
   function traverse(obj: any, parentAgent?: string, structuralKey?: string) {
@@ -360,6 +368,7 @@ export function parseAITrainingJSON(
 
   return {
     agentType: mode,
+    sessionId: sessionId,
     events: finalEvents
   };
 }

@@ -10,6 +10,7 @@ interface TimelineViewProps {
 export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [copySummaryStatus, setCopySummaryStatus] = useState('Copy Summary');
   const [copyTranscriptStatus, setCopyTranscriptStatus] = useState('Copy Transcript');
+  const [copySessionStatus, setCopySessionStatus] = useState('Copy');
   
   const [showTranscripts, setShowTranscripts] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
@@ -90,6 +91,13 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     setTimeout(() => setCopyTranscriptStatus('Copy Transcript'), 2000);
   };
 
+  const handleCopySession = () => {
+    if (!data.sessionId) return;
+    navigator.clipboard.writeText(data.sessionId);
+    setCopySessionStatus('Copied!');
+    setTimeout(() => setCopySessionStatus('Copy'), 2000);
+  };
+
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
       <div className="timeline-header glass">
@@ -109,6 +117,14 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
                data.agentType === 'prod single agent' ? 'Prod Single Agent' : 
                data.agentType === 'pre-prod' ? 'Pre-Prod' : 'Unknown'}
             </span>
+            {data.sessionId && (
+              <span style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Session ID: <strong className="text-foreground" style={{ fontFamily: 'monospace' }}>{data.sessionId}</strong>
+                <button onClick={handleCopySession} className="btn-secondary" style={{ padding: '0.1rem 0.4rem', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <Copy style={{ width: '0.7rem', height: '0.7rem' }} /> {copySessionStatus}
+                </button>
+              </span>
+            )}
             <span style={{ marginLeft: '1rem' }}>
               Events Found: <strong className="text-foreground">{data.events.length}</strong>
             </span>
