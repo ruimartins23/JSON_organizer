@@ -48,25 +48,8 @@ export function parseAITrainingJSON(
     sessionId = sessionMatch[1];
   }
 
-  // Calculate duration from eventTime fields
-  let durationStr: string | undefined = undefined;
-  const eventTimeRegex = /"eventTime"\s*:\s*"([^"]+)"/g;
-  let match;
-  const eventTimes: string[] = [];
-  while ((match = eventTimeRegex.exec(stringifiedData)) !== null) {
-    eventTimes.push(match[1]);
-  }
-  if (eventTimes.length > 0) {
-    const dates = eventTimes.map(t => new Date(t).getTime()).filter(t => !isNaN(t));
-    if (dates.length > 0) {
-      const min = Math.min(...dates);
-      const max = Math.max(...dates);
-      const diffMs = max - min;
-      const minutes = Math.floor(diffMs / 60000);
-      const seconds = Math.floor((diffMs % 60000) / 1000);
-      durationStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-  }
+  // We will collect rootSpans during traversal for the highest precision duration
+  const rootSpans: {start: number, end: number}[] = [];
 
   // Recursively search the JSON for useful objects
   function traverse(obj: any, parentAgent?: string, structuralKey?: string) {
@@ -75,6 +58,14 @@ export function parseAITrainingJSON(
     if (Array.isArray(obj)) {
       obj.forEach((item) => traverse(item, parentAgent, structuralKey));
       return;
+    }
+
+    // Capture rootSpan for maximum precision duration calculation
+    if (obj.rootSpan && typeof obj.rootSpan.startTime === 'string' && typeof obj.rootSpan.endTime === 'string') {
+      rootSpans.push({
+        start: new Date(obj.rootSpan.startTime).getTime(),
+        end: new Date(obj.rootSpan.endTime).getTime()
+      });
     }
 
     const currentAgent = obj.agent || obj.role || obj.agentName || parentAgent;
@@ -326,10 +317,15 @@ export function parseAITrainingJSON(
     }
 
     if (content && content.trim() !== '' && !isToolResponse && obj.role !== 'tool' && !obj.toolCall && !obj.functionCall && !toolName) {
+      let finalRole = role || 'system';
+      if ((mode === 'pre-prod' || mode === 'prod single agent') && finalRole.toLowerCase() === 'account management agent') {
+        finalRole = 'agent';
+      }
+
       events.push({
         id: extractId(obj) || generateId(),
         type: 'message',
-        messageRole: role || 'system',
+        messageRole: finalRole,
         messageContent: content,
         raw: { agent: currentAgent, ...obj }
       });
@@ -345,7 +341,44 @@ export function parseAITrainingJSON(
 
   traverse(data);
 
-  // Post-processing: pair tool responses with their function calls if IDs match
+  // Finalize duration calculation
+  let durationStr: string | undefined = undefined;
+  
+  if (rootSpans.length > 0) {
+    // Highest precision: MIN and MAX of all rootSpans
+    const validSpans = rootSpans.filter(s => !isNaN(s.start) && !isNaN(s.end));
+    if (validSpans.length > 0) {
+      const min = validSpans.reduce((a, b) => Math.min(a, b.start), Infinity);
+      const max = validSpans.reduce((a, b) => Math.max(a, b.end), -Infinity);
+      const diffMs = max - min;
+      const totalSeconds = Math.max(0, Math.round(diffMs / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      durationStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+  } else {
+    // Fallback: Global eventTime regex
+    const eventTimeRegex = /"eventTime"\s*:\s*"([^"]+)"/g;
+    let match;
+    const eventTimes: string[] = [];
+    while ((match = eventTimeRegex.exec(stringifiedData)) !== null) {
+      eventTimes.push(match[1]);
+    }
+    if (eventTimes.length > 0) {
+      const dates = eventTimes.map(t => new Date(t).getTime()).filter(t => !isNaN(t));
+      if (dates.length > 0) {
+        const min = dates.reduce((a, b) => Math.min(a, b), Infinity);
+        const max = dates.reduce((a, b) => Math.max(a, b), -Infinity);
+        const diffMs = max - min;
+        const totalSeconds = Math.max(0, Math.round(diffMs / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        durationStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // Deduplicate and process events: pair tool responses with their function calls if IDs match
   const functionMap = new Map<string, ParsedEvent>();
   const finalEvents: ParsedEvent[] = [];
 

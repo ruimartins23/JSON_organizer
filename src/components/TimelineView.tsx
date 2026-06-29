@@ -272,8 +272,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             value={summaryText} 
             style={{ 
               width: '100%', 
-              flex: 1,
-              minHeight: '200px', 
+              height: '400px', 
               background: 'var(--bg-glass)', 
               color: 'var(--text-foreground)', 
               border: '1px solid var(--border-glass)', 
@@ -300,8 +299,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             value={transcriptText} 
             style={{ 
               width: '100%', 
-              flex: 1,
-              minHeight: '200px', 
+              height: '400px', 
               background: 'var(--bg-glass)', 
               color: 'var(--text-foreground)', 
               border: '1px solid var(--border-glass)', 
