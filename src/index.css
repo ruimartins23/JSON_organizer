@@ -61,8 +61,15 @@ input, textarea {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.glass:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
 .gradient-text {
@@ -78,13 +85,13 @@ input, textarea {
   min-height: 100vh;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.98) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeInScale 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 ::-webkit-scrollbar {
@@ -107,10 +114,38 @@ input, textarea {
 
 /* App Layout Layout */
 .app-container {
-  padding: 3rem 1.5rem;
+  min-height: 100vh;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.app-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: 
+    radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+  animation: floatBackground 20s ease-in-out infinite alternate;
+}
+
+@keyframes floatBackground {
+  0% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.1) translate(2%, 2%); }
+  100% { transform: scale(1) translate(-2%, -2%); }
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .header {
@@ -130,6 +165,22 @@ input, textarea {
   width: 2.5rem;
   height: 2.5rem;
   color: var(--primary);
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(to right, #60a5fa, #c084fc, #60a5fa);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shine 4s linear infinite;
+}
+
+@keyframes shine {
+  to { background-position: 200% center; }
 }
 
 .header h1 {
@@ -154,24 +205,49 @@ input, textarea {
 }
 
 .dropzone-area {
-  padding: 3rem 2rem;
-  border: 2px dashed var(--border);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 1rem;
+  padding: 4rem 2rem;
+  text-align: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.dropzone-area::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .dropzone-area:hover {
   border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.05);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.3);
+}
+
+.dropzone-area:hover::before {
+  opacity: 1;
 }
 
 .dropzone-area.dragging {
   border-color: var(--primary);
   background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
 }
 
 .dropzone-icon-bg {
@@ -182,9 +258,15 @@ input, textarea {
 }
 
 .dropzone-icon {
-  width: 2rem;
-  height: 2rem;
+  width: 3rem;
+  height: 3rem;
   color: var(--primary);
+  animation: floatIcon 3s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 .dropzone-title {
@@ -206,11 +288,14 @@ input, textarea {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  transition: background 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
 }
 
 .btn-primary:hover {
   background: rgba(59, 130, 246, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.5);
 }
 
 .hidden-input {
@@ -267,16 +352,39 @@ input, textarea {
   font-weight: 500;
   border-radius: 9999px;
   font-size: 0.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 10px rgba(0,0,0,0);
+}
+
+.badge:hover {
+  transform: scale(1.05);
 }
 
 .badge.primary {
   background: rgba(59, 130, 246, 0.2);
   color: var(--primary);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.badge.primary:hover {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
 }
 
 .badge.accent {
   background: rgba(139, 92, 246, 0.2);
   color: var(--accent);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.badge.accent:hover {
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.badge.diag {
+  background: rgba(245, 158, 11, 0.2);
+  color: rgb(252, 211, 77);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge.diag:hover {
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
 }
 
 .btn-secondary {
@@ -284,21 +392,39 @@ input, textarea {
   color: var(--secondary-foreground);
   padding: 0.5rem 1rem;
   border-radius: var(--radius);
-  transition: background 0.2s;
+  transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
   background: rgba(51, 65, 85, 0.8);
+  transform: translateY(-2px);
 }
 
 .timeline-list {
   position: relative;
-  border-left: 1px solid var(--border);
-  margin-left: 1.5rem;
   padding-bottom: 3rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 0;
+  margin-left: 1rem;
+}
+
+.timeline-list::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -2rem;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.6), rgba(139, 92, 246, 0.6), transparent);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  border-radius: 2px;
+  animation: pulseLine 4s infinite alternate;
+}
+
+@keyframes pulseLine {
+  0% { opacity: 0.5; box-shadow: 0 0 8px rgba(59, 130, 246, 0.3); }
+  100% { opacity: 1; box-shadow: 0 0 16px rgba(139, 92, 246, 0.7); }
 }
 
 .timeline-empty {
@@ -310,7 +436,7 @@ input, textarea {
 
 .timeline-item {
   position: relative;
-  padding-left: 2rem;
+  padding-left: 0;
 }
 
 .timeline-dot {

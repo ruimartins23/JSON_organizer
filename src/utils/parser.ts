@@ -60,7 +60,7 @@ export function parseAITrainingJSON(
       return;
     }
 
-    // Capture rootSpan for maximum precision duration calculation
+    // Capture rootSpan for duration caclcuation
     if (obj.rootSpan && typeof obj.rootSpan.startTime === 'string' && typeof obj.rootSpan.endTime === 'string') {
       rootSpans.push({
         start: new Date(obj.rootSpan.startTime).getTime(),
