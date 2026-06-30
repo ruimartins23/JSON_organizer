@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Wrench, PowerOff, ArrowRightLeft, ChevronDown, ChevronRight, Activity, Code, Server, CheckCircle2, Copy, MessageSquare, Download } from 'lucide-react';
+import { Activity, Copy, Download } from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -341,7 +341,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           if (event.type === 'transfer' && !showTransfers) return false;
           return true;
         }).map((event, idx) => (
-          <TimelineItem key={event.id || idx} event={event} index={idx + 1} />
+          <TimelineItem key={event.id || idx} event={event} />
         ))}
         {data.events.length === 0 && (
           <div className="timeline-empty glass">
@@ -353,114 +353,75 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   );
 }
 
-function TimelineItem({ event, index }: { event: ParsedEvent, index: number }) {
-  const [expanded, setExpanded] = useState(event.type !== 'tool_response');
+function TimelineItem({ event }: { event: ParsedEvent }) {
+  const [expanded, setExpanded] = useState(false);
 
   const getEventConfig = (type: string) => {
     switch (type) {
-      case 'function':
-        return { icon: Wrench, class: 'function', label: 'Function Call' };
-      case 'transfer':
-        return { icon: ArrowRightLeft, class: 'transfer', label: 'Agent Transfer' };
-      case 'endsession':
-        return { icon: PowerOff, class: 'endsession', label: 'End Session' };
-      case 'tool_response':
-        return { icon: Code, class: 'response', label: 'Tool Response' };
-      case 'message':
-        return { icon: MessageSquare, class: 'message', label: 'Transcript Message' };
-      default:
-        return { icon: Code, class: 'unknown', label: 'Unknown Event' };
+      case 'function': return { class: 'function', badge: 'DIAG' };
+      case 'transfer': return { class: 'transfer', badge: 'DIAG' };
+      case 'endsession': return { class: 'endsession', badge: 'DIAG' };
+      case 'tool_response': return { class: 'response', badge: 'DIAG' };
+      case 'message': return { class: 'message', badge: event.messageRole ? event.messageRole.toUpperCase() : 'SYSTEM' };
+      default: return { class: 'unknown', badge: 'UNKNOWN' };
     }
   };
 
   const config = getEventConfig(event.type);
-  const Icon = config.icon;
 
+  // Render a completely flat layout without any timeline dots or glass cards
   return (
-    <div className="timeline-item">
-      {/* Timeline dot */}
-      <div className={`timeline-dot ${config.class}`}>
-        <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{index}</span>
-      </div>
-
-      {/* Content Card */}
-      <div className="timeline-card glass">
-        <div className="timeline-card-header" onClick={() => setExpanded(!expanded)}>
-          <div className="timeline-card-info">
-            <div className="timeline-card-labels">
-              <span className={`timeline-label ${config.class}`}>
-                <Icon style={{ width: '0.8rem', height: '0.8rem', marginRight: '4px' }} />
-                {config.label}
-              </span>
-              {event.response && (
-                <span className="responded-badge">
-                  <CheckCircle2 style={{ width: '0.75rem', height: '0.75rem' }} /> Responded
-                </span>
-              )}
-            </div>
-            <h3 className="timeline-card-title text-foreground" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <span>{event.type === 'message' ? `Transcript Log` : (event.toolName || (event.type === 'tool_response' ? 'Tool Response Output' : 'Unknown Tool'))}</span>
-              {event.duplicateCount && event.duplicateCount > 1 && (
-                <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--text-secondary)', background: 'var(--bg-glass)', padding: '0.1rem 0.5rem', borderRadius: '1rem', border: '1px solid var(--border-glass)' }}>
-                  (function executed {event.duplicateCount} times with the same tool call id)
-                </span>
-              )}
-            </h3>
+    <div style={{ display: 'flex', flexDirection: 'column', padding: '0.35rem 0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <span className={`badge ${event.type === 'message' ? (event.messageRole === 'user' ? 'primary' : 'accent') : 'diag'}`} 
+              style={{ marginRight: '1rem', minWidth: '4.5rem', textAlign: 'center', marginTop: '0.1rem', cursor: (event.arguments || event.raw) && event.type !== 'message' ? 'pointer' : 'default' }}
+              onClick={() => { if ((event.arguments || event.raw) && event.type !== 'message') setExpanded(!expanded) }}>
+          {config.badge}
+        </span>
+        
+        {event.type === 'message' ? (
+          <div style={{ color: 'var(--text-foreground)', fontSize: '0.95rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', flex: 1 }}>
+            {event.messageContent}
+          </div>
+        ) : (
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5, flex: 1, display: 'flex', alignItems: 'center', cursor: 'pointer', flexWrap: 'wrap', gap: '0.3rem' }}
+               onClick={() => setExpanded(!expanded)}>
+            <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>&gt;</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'rgb(147, 197, 253)' }}>
+              {event.toolName || (event.type === 'tool_response' ? 'Tool Response Output' : 'Unknown Tool')}
+            </span>
             {event.type === 'transfer' && (
-              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                <strong>From:</strong> {event.raw?.agent || 'Unknown'} <ArrowRightLeft style={{ width: '0.8rem', height: '0.8rem', margin: '0 4px', display: 'inline' }} /> 
-                <strong>To:</strong> {event.arguments?.displayName || event.arguments?.agent_name || event.arguments?.target || event.arguments?.destination || event.arguments?.agent || event.arguments?.targetAgent || 'Unknown'}
-              </div>
+              <span style={{ opacity: 0.8, fontSize: '0.85rem' }}>
+                (From {event.raw?.agent || 'Unknown'} to {event.arguments?.displayName || event.arguments?.agent_name || event.arguments?.target || event.arguments?.destination || event.arguments?.agent || event.arguments?.targetAgent || 'Unknown'})
+              </span>
             )}
-          </div>
-          <div className="timeline-card-icon">
-            {expanded ? <ChevronDown style={{ width: '1.25rem', height: '1.25rem' }} /> : <ChevronRight style={{ width: '1.25rem', height: '1.25rem' }} />}
-          </div>
-        </div>
-
-        {/* Expanded Content */}
-        {expanded && (
-          <div className="timeline-card-body animate-fade-in">
-            
-            {event.arguments && (
-              <div>
-                <h4 className="data-section-title">
-                  <Server style={{ width: '1rem', height: '1rem' }} /> Arguments
-                </h4>
-                <div className="data-block args">
-                  <pre>{typeof event.arguments === 'string' ? event.arguments : JSON.stringify(event.arguments, null, 2)}</pre>
-                </div>
-              </div>
+            {event.duplicateCount && event.duplicateCount > 1 && (
+              <span style={{ opacity: 0.8, fontSize: '0.85rem', background: 'rgba(255,255,255,0.1)', padding: '0 4px', borderRadius: '4px' }}>
+                ({event.duplicateCount}x)
+              </span>
             )}
-
-            {event.type === 'message' && event.messageContent && (
-              <div>
-                <div className="data-block args">
-                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                    <strong style={{ color: 'var(--primary)' }}>[{event.messageRole?.toUpperCase()}]</strong> {event.messageContent}
-                  </pre>
-                </div>
-              </div>
-            )}
-
-            {!event.arguments && event.type !== 'tool_response' && event.type !== 'message' && (
-              <div className="no-data">
-                No detailed arguments available for this event.
-              </div>
-            )}
-            
-            {/* Raw JSON Debug View */}
-            <details>
-              <summary className="raw-data-summary">
-                View Raw Event JSON
-              </summary>
-              <div className="raw-data-block">
-                <pre>{JSON.stringify(event.raw, null, 2)}</pre>
-              </div>
-            </details>
           </div>
         )}
       </div>
+
+      {expanded && (event.arguments || event.raw) && event.type !== 'message' && (
+        <div style={{ marginLeft: '5.5rem', marginTop: '0.5rem', marginBottom: '1rem' }} className="animate-fade-in">
+          {event.arguments && (
+            <div className="data-block args" style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <pre style={{ fontSize: '0.8rem', margin: 0 }}>{typeof event.arguments === 'string' ? event.arguments : JSON.stringify(event.arguments, null, 2)}</pre>
+            </div>
+          )}
+          
+          <details style={{ marginTop: '0.5rem' }}>
+            <summary className="raw-data-summary" style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+              View Raw Event JSON
+            </summary>
+            <div className="raw-data-block" style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
+              <pre style={{ fontSize: '0.75rem', margin: 0 }}>{JSON.stringify(event.raw, null, 2)}</pre>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }
