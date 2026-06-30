@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2 } from 'lucide-react';
-import type { EnvironmentMode } from '../utils/parser';
+import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 
 interface DropzoneProps {
-  onFileParsed: (data: any, mode: EnvironmentMode) => void;
+  onFileParsed: (data: any, mode: EnvironmentMode, config: ParserConfig) => void;
 }
 
 export function Dropzone({ onFileParsed }: DropzoneProps) {
@@ -11,6 +11,19 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [error, setError] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState('');
   const [mode, setMode] = useState<EnvironmentMode>('pre-prod');
+  const [functionKeyword, setFunctionKeyword] = useState('toolCall');
+  const [transferKeyword, setTransferKeyword] = useState('TransferToAgentTool');
+  const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
+  const [sameAsFunction, setSameAsFunction] = useState(false);
+
+  const handleModeChange = (newMode: EnvironmentMode) => {
+    setMode(newMode);
+    if (newMode === 'pre-prod') {
+      setFunctionKeyword('toolCall');
+    } else {
+      setFunctionKeyword('PythonFunctionTool');
+    }
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -25,7 +38,11 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const processText = (text: string) => {
     try {
       const json = JSON.parse(text);
-      onFileParsed(json, mode);
+      onFileParsed(json, mode, { 
+        functionKeyword, 
+        transferKeyword, 
+        endSessionKeyword: sameAsFunction ? functionKeyword : endSessionKeyword 
+      });
       setError(null);
     } catch (err: any) {
       console.error(err);
@@ -55,7 +72,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
     }
-  }, [onFileParsed, mode]);
+  }, [onFileParsed, mode, functionKeyword, transferKeyword, endSessionKeyword, sameAsFunction]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -86,22 +103,79 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
         <div className="segmented-control">
           <button 
             className={`segment-btn ${mode === 'pre-prod' ? 'active' : ''}`}
-            onClick={() => setMode('pre-prod')}
+            onClick={() => handleModeChange('pre-prod')}
           >
             Pre-Prod
           </button>
           <button 
             className={`segment-btn ${mode === 'prod single agent' ? 'active' : ''}`}
-            onClick={() => setMode('prod single agent')}
+            onClick={() => handleModeChange('prod single agent')}
           >
             Prod Single Agent
           </button>
           <button 
             className={`segment-btn ${mode === 'prod multi agent' ? 'active' : ''}`}
-            onClick={() => setMode('prod multi agent')}
+            onClick={() => handleModeChange('prod multi agent')}
           >
             Prod Multi Agent
           </button>
+        </div>
+
+        {/* Dynamic Config Panel */}
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
+              Function Tool Keyword
+            </label>
+            <input 
+              type="text" 
+              value={functionKeyword}
+              placeholder={mode === 'pre-prod' ? 'toolCall' : 'PythonFunctionTool'}
+              onChange={(e) => setFunctionKeyword(e.target.value)}
+              className="glass"
+              style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
+            />
+          </div>
+          {mode === 'prod multi agent' && (
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
+                Transfer Tool Keyword
+              </label>
+              <input 
+                type="text" 
+                value={transferKeyword}
+                placeholder="TransferToAgentTool"
+                onChange={(e) => setTransferKeyword(e.target.value)}
+                className="glass"
+                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
+              />
+            </div>
+          )}
+          {mode !== 'pre-prod' && (
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
+                End Session Tool Keyword
+              </label>
+              <input 
+                type="text" 
+                value={sameAsFunction ? functionKeyword : endSessionKeyword}
+                placeholder="EndSessionTool"
+                disabled={sameAsFunction}
+                onChange={(e) => setEndSessionKeyword(e.target.value)}
+                className="glass"
+                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem', opacity: sameAsFunction ? 0.5 : 1 }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={sameAsFunction} 
+                  onChange={(e) => setSameAsFunction(e.target.checked)} 
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                Same as Function Tool Keyword
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
