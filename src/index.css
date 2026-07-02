@@ -299,6 +299,31 @@ input, textarea {
   50% { transform: translateY(-8px); }
 }
 
+.keyword-chip {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.keyword-chip:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+}
+
+.keyword-chip.active {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
 .dropzone-title {
   font-size: 1.25rem;
   margin-bottom: 0.5rem;

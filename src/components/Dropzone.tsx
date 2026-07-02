@@ -12,7 +12,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [pastedText, setPastedText] = useState('');
   const [mode, setMode] = useState<EnvironmentMode>('pre-prod');
   const [functionKeyword, setFunctionKeyword] = useState('toolCall');
-  const [transferKeyword, setTransferKeyword] = useState('TransferToAgentTool');
+  const [transferKeyword, setTransferKeyword] = useState('agentTransfer');
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
   const [sameAsFunction, setSameAsFunction] = useState(false);
 
@@ -135,6 +135,20 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               className="glass"
               style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
             />
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setFunctionKeyword('toolCall'); }}
+                className={`keyword-chip ${functionKeyword === 'toolCall' ? 'active' : ''}`}
+              >
+                toolCall
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setFunctionKeyword('PythonFunctionTool'); }}
+                className={`keyword-chip ${functionKeyword === 'PythonFunctionTool' ? 'active' : ''}`}
+              >
+                PythonFunctionTool
+              </button>
+            </div>
           </div>
           {mode === 'prod multi agent' && (
             <div style={{ flex: 1, minWidth: '200px' }}>
@@ -144,7 +158,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               <input 
                 type="text" 
                 value={transferKeyword}
-                placeholder="TransferToAgentTool"
+                placeholder="agentTransfer"
                 onChange={(e) => setTransferKeyword(e.target.value)}
                 className="glass"
                 style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
@@ -165,6 +179,22 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
                 className="glass"
                 style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem', opacity: sameAsFunction ? 0.5 : 1 }}
               />
+              {!sameAsFunction && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setEndSessionKeyword('toolCall'); }}
+                    className={`keyword-chip ${endSessionKeyword === 'toolCall' ? 'active' : ''}`}
+                  >
+                    toolCall
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setEndSessionKeyword('EndSessionTool'); }}
+                    className={`keyword-chip ${endSessionKeyword === 'EndSessionTool' ? 'active' : ''}`}
+                  >
+                    EndSessionTool
+                  </button>
+                </div>
+              )}
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', cursor: 'pointer' }}>
                 <input 
                   type="checkbox" 

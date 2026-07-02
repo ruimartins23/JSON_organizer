@@ -186,6 +186,9 @@ export function parseAITrainingJSON(
       if (!toolResp && obj.pythonfunctiontool) {
         toolResp = obj.pythonfunctiontool.response || obj.pythonfunctiontool.toolResponse || obj.pythonfunctiontool.tool_response || obj.pythonfunctiontool.content;
       }
+      if (!toolResp && obj.endsessiontool) {
+        toolResp = obj.endsessiontool.response || obj.endsessiontool.toolResponse || obj.endsessiontool.tool_response || obj.endsessiontool.content;
+      }
       
       if (toolResp && typeof toolResp === 'object' && toolResp.response) {
         toolResp = toolResp.response;
@@ -218,14 +221,17 @@ export function parseAITrainingJSON(
              raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
-           events.push({
-             id: extractId(obj) || generateId(),
-             type: 'endsession',
-             toolName: toolName,
-             arguments: toolArgs,
-             response: toolResp,
-             raw: { agent: currentAgent, ...obj }
-           });
+           // Only show endsessiontool if it has result: done
+           if (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done') {
+             events.push({
+               id: extractId(obj) || generateId(),
+               type: 'endsession',
+               toolName: toolName,
+               arguments: toolArgs,
+               response: toolResp,
+               raw: { agent: currentAgent, ...obj }
+             });
+           }
         }
       }
       else if (mode === 'prod multi agent') {
@@ -240,14 +246,17 @@ export function parseAITrainingJSON(
              raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
-           events.push({
-             id: extractId(obj) || generateId(),
-             type: 'endsession',
-             toolName: toolName,
-             arguments: toolArgs,
-             response: toolResp,
-             raw: { agent: currentAgent, ...obj }
-           });
+           // Only show endsessiontool if it has result: done
+           if (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done') {
+             events.push({
+               id: extractId(obj) || generateId(),
+               type: 'endsession',
+               toolName: toolName,
+               arguments: toolArgs,
+               response: toolResp,
+               raw: { agent: currentAgent, ...obj }
+             });
+           }
         } else if (category === 'transfertoagenttool') {
            events.push({
              id: extractId(obj) || generateId(),
