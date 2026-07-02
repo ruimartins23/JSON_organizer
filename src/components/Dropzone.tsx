@@ -14,7 +14,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [functionKeyword, setFunctionKeyword] = useState('toolCall');
   const [transferKeyword, setTransferKeyword] = useState('agentTransfer');
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
-  const [sameAsFunction, setSameAsFunction] = useState(false);
 
   const handleModeChange = (newMode: EnvironmentMode) => {
     setMode(newMode);
@@ -41,7 +40,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
       onFileParsed(json, mode, { 
         functionKeyword, 
         transferKeyword, 
-        endSessionKeyword: sameAsFunction ? functionKeyword : endSessionKeyword 
+        endSessionKeyword: endSessionKeyword 
       });
       setError(null);
     } catch (err: any) {
@@ -72,7 +71,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
     }
-  }, [onFileParsed, mode, functionKeyword, transferKeyword, endSessionKeyword, sameAsFunction]);
+  }, [onFileParsed, mode, functionKeyword, transferKeyword, endSessionKeyword]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -172,14 +171,12 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               </label>
               <input 
                 type="text" 
-                value={sameAsFunction ? functionKeyword : endSessionKeyword}
+                value={endSessionKeyword}
                 placeholder="EndSessionTool"
-                disabled={sameAsFunction}
                 onChange={(e) => setEndSessionKeyword(e.target.value)}
                 className="glass"
-                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem', opacity: sameAsFunction ? 0.5 : 1 }}
+                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
               />
-              {!sameAsFunction && (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setEndSessionKeyword('toolCall'); }}
@@ -194,16 +191,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
                     EndSessionTool
                   </button>
                 </div>
-              )}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={sameAsFunction} 
-                  onChange={(e) => setSameAsFunction(e.target.checked)} 
-                  style={{ accentColor: 'var(--primary)' }}
-                />
-                Same as Function Tool Keyword
-              </label>
             </div>
           )}
         </div>
