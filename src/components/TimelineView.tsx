@@ -61,7 +61,10 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           counter++;
         } else if (event.type === 'message') {
           if (transcript.length > 0 && !transcript.endsWith('\n\n')) transcript += (transcript.endsWith('\n') ? '\n' : '\n\n');
-          const roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          let roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          if (roleStr.toLowerCase() !== 'user' && roleStr.toLowerCase() !== 'system') {
+            roleStr = 'Agent';
+          }
           transcript += `${roleStr}: ${event.messageContent}\n`;
         }
       });
@@ -72,7 +75,10 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           counter++;
         } else if (event.type === 'message') {
           if (transcript.length > 0 && !transcript.endsWith('\n\n')) transcript += (transcript.endsWith('\n') ? '\n' : '\n\n');
-          const roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          let roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          if (roleStr.toLowerCase() !== 'user' && roleStr.toLowerCase() !== 'system') {
+            roleStr = 'Agent';
+          }
           transcript += `${roleStr}: ${event.messageContent}\n`;
         }
       });
