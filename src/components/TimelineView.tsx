@@ -34,9 +34,10 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     return { functions, transfers, messages };
   }, [data.events]);
 
-  const { summaryText, transcriptText } = useMemo(() => {
+  const { summaryText, displayTranscriptText, downloadTranscriptText } = useMemo(() => {
     let summary = '';
-    let transcript = '';
+    let displayTranscript = '';
+    let downloadTranscript = '';
     let counter = 1;
 
     if (data.agentType === 'prod multi agent') {
@@ -60,12 +61,18 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           summary += `${counter}. ${event.toolName || 'Unknown Function'} executed\n`;
           counter++;
         } else if (event.type === 'message') {
-          if (transcript.length > 0 && !transcript.endsWith('\n\n')) transcript += (transcript.endsWith('\n') ? '\n' : '\n\n');
-          let roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
-          if (roleStr.toLowerCase() !== 'user' && roleStr.toLowerCase() !== 'system') {
-            roleStr = 'Agent';
+          if (displayTranscript.length > 0 && !displayTranscript.endsWith('\n\n')) displayTranscript += (displayTranscript.endsWith('\n') ? '\n' : '\n\n');
+          if (downloadTranscript.length > 0 && !downloadTranscript.endsWith('\n\n')) downloadTranscript += (downloadTranscript.endsWith('\n') ? '\n' : '\n\n');
+          
+          let displayRoleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          let downloadRoleStr = displayRoleStr;
+          
+          if (downloadRoleStr.toLowerCase() !== 'user' && downloadRoleStr.toLowerCase() !== 'system') {
+            downloadRoleStr = 'Agent';
           }
-          transcript += `${roleStr}: ${event.messageContent}\n`;
+          
+          displayTranscript += `${displayRoleStr}: ${event.messageContent}\n`;
+          downloadTranscript += `${downloadRoleStr}: ${event.messageContent}\n`;
         }
       });
     } else {
@@ -74,17 +81,23 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           summary += `${counter}. ${event.toolName || 'Unknown Function'} executed\n`;
           counter++;
         } else if (event.type === 'message') {
-          if (transcript.length > 0 && !transcript.endsWith('\n\n')) transcript += (transcript.endsWith('\n') ? '\n' : '\n\n');
-          let roleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
-          if (roleStr.toLowerCase() !== 'user' && roleStr.toLowerCase() !== 'system') {
-            roleStr = 'Agent';
+          if (displayTranscript.length > 0 && !displayTranscript.endsWith('\n\n')) displayTranscript += (displayTranscript.endsWith('\n') ? '\n' : '\n\n');
+          if (downloadTranscript.length > 0 && !downloadTranscript.endsWith('\n\n')) downloadTranscript += (downloadTranscript.endsWith('\n') ? '\n' : '\n\n');
+          
+          let displayRoleStr = event.messageRole ? event.messageRole.charAt(0).toUpperCase() + event.messageRole.slice(1) : 'System';
+          let downloadRoleStr = displayRoleStr;
+          
+          if (downloadRoleStr.toLowerCase() !== 'user' && downloadRoleStr.toLowerCase() !== 'system') {
+            downloadRoleStr = 'Agent';
           }
-          transcript += `${roleStr}: ${event.messageContent}\n`;
+          
+          displayTranscript += `${displayRoleStr}: ${event.messageContent}\n`;
+          downloadTranscript += `${downloadRoleStr}: ${event.messageContent}\n`;
         }
       });
     }
 
-    return { summaryText: summary.trim(), transcriptText: transcript.trim() };
+    return { summaryText: summary.trim(), displayTranscriptText: displayTranscript.trim(), downloadTranscriptText: downloadTranscript.trim() };
   }, [data.events, data.agentType]);
 
   const handleCopySummary = () => {
@@ -95,8 +108,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   };
 
   const handleCopyTranscript = () => {
-    if (!transcriptText) return;
-    navigator.clipboard.writeText(transcriptText);
+    if (!downloadTranscriptText) return;
+    navigator.clipboard.writeText(downloadTranscriptText);
     setCopyTranscriptStatus('Copied!');
     setTimeout(() => setCopyTranscriptStatus('Copy Transcript'), 2000);
   };
@@ -133,8 +146,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   };
 
   const handleDownloadTranscript = () => {
-    if (!transcriptText) return;
-    downloadFile(transcriptText, transcriptFileName);
+    if (!downloadTranscriptText) return;
+    downloadFile(downloadTranscriptText, transcriptFileName);
   };
 
   const handleDownloadAll = () => {
@@ -302,7 +315,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           </div>
           <textarea 
             readOnly 
-            value={transcriptText} 
+            value={displayTranscriptText} 
             style={{ 
               width: '100%', 
               height: '400px', 
