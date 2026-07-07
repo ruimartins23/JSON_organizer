@@ -52,13 +52,15 @@ export function parseAITrainingJSON(
   const rootSpans: {start: number, end: number}[] = [];
 
   // Recursively search the JSON for useful objects
-  function traverse(obj: any, parentAgent?: string, structuralKey?: string) {
+  function traverse(obj: any, parentAgent?: string, structuralKey?: string, parentTime?: string) {
     if (!obj || typeof obj !== 'object') return;
 
     if (Array.isArray(obj)) {
-      obj.forEach((item) => traverse(item, parentAgent, structuralKey));
+      obj.forEach((item) => traverse(item, parentAgent, structuralKey, parentTime));
       return;
     }
+
+    const currentTime = obj.eventTime || obj.timestamp || obj.time || parentTime;
 
     // Capture rootSpan for duration caclcuation
     if (obj.rootSpan && typeof obj.rootSpan.startTime === 'string' && typeof obj.rootSpan.endTime === 'string') {
@@ -168,7 +170,7 @@ export function parseAITrainingJSON(
           category = 'toolCall';
         }
       } else {
-        if (isEndSessionName || isConfigEndSession || (config.endSessionKeyword === 'EndSessionTool' && (typeStr === 'endsessiontool' || obj.endsessiontool))) {
+        if (isConfigEndSession || (config.endSessionKeyword === 'EndSessionTool' && (typeStr === 'endsessiontool' || obj.endsessiontool))) {
           category = 'endsessiontool';
         } else if (isConfigTransfer || (config.transferKeyword === 'TransferToAgentTool' && (obj.transfertoagenttool || obj.agentTransfer))) {
           category = 'transfertoagenttool';
@@ -205,6 +207,7 @@ export function parseAITrainingJSON(
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
+             timestamp: currentTime,
              raw: { agent: currentAgent, ...obj }
            });
         }
@@ -218,20 +221,27 @@ export function parseAITrainingJSON(
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
+             timestamp: currentTime,
              raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
-           // Only show endsessiontool if it has result: done
-           if (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done') {
-             events.push({
-               id: extractId(obj) || generateId(),
-               type: 'endsession',
-               toolName: toolName,
-               arguments: toolArgs,
-               response: toolResp,
-               raw: { agent: currentAgent, ...obj }
-             });
-           }
+             let shouldInclude = false;
+             if (config.endSessionKeyword === 'EndSessionTool') {
+               shouldInclude = toolName.toLowerCase() === 'end_session';
+             } else {
+               shouldInclude = (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done');
+             }
+             if (shouldInclude) {
+               events.push({
+                 id: extractId(obj) || generateId(),
+                 type: 'endsession',
+                 toolName: toolName,
+                 arguments: toolArgs,
+                 response: toolResp,
+                 timestamp: currentTime,
+                 raw: { agent: currentAgent, ...obj }
+               });
+             }
         }
       }
       else if (mode === 'prod multi agent') {
@@ -243,20 +253,27 @@ export function parseAITrainingJSON(
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
+             timestamp: currentTime,
              raw: { agent: currentAgent, ...obj }
            });
         } else if (category === 'endsessiontool') {
-           // Only show endsessiontool if it has result: done
-           if (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done') {
-             events.push({
-               id: extractId(obj) || generateId(),
-               type: 'endsession',
-               toolName: toolName,
-               arguments: toolArgs,
-               response: toolResp,
-               raw: { agent: currentAgent, ...obj }
-             });
-           }
+             let shouldInclude = false;
+             if (config.endSessionKeyword === 'EndSessionTool') {
+               shouldInclude = toolName.toLowerCase() === 'end_session';
+             } else {
+               shouldInclude = (toolResp && toolResp.result && toolResp.result.toLowerCase() === 'done');
+             }
+             if (shouldInclude) {
+               events.push({
+                 id: extractId(obj) || generateId(),
+                 type: 'endsession',
+                 toolName: toolName,
+                 arguments: toolArgs,
+                 response: toolResp,
+                 timestamp: currentTime,
+                 raw: { agent: currentAgent, ...obj }
+               });
+             }
         } else if (category === 'transfertoagenttool') {
            events.push({
              id: extractId(obj) || generateId(),
@@ -264,6 +281,7 @@ export function parseAITrainingJSON(
              toolName: toolName,
              arguments: toolArgs,
              response: toolResp,
+             timestamp: currentTime,
              raw: { agent: currentAgent, ...obj }
            });
         }
@@ -293,6 +311,7 @@ export function parseAITrainingJSON(
         id: extractId(obj) || generateId(),
         type: 'tool_response',
         response: responseContent,
+        timestamp: currentTime,
         raw: { agent: currentAgent, ...obj }
        });
     }
@@ -336,6 +355,7 @@ export function parseAITrainingJSON(
         type: 'message',
         messageRole: finalRole,
         messageContent: content,
+        timestamp: currentTime,
         raw: { agent: currentAgent, ...obj }
       });
     }
@@ -343,7 +363,7 @@ export function parseAITrainingJSON(
     // Continue traversing down to find nested tool calls (e.g., in messages array)
     for (const key of Object.keys(obj)) {
       if (typeof obj[key] === 'object') {
-        traverse(obj[key], currentAgent, key);
+        traverse(obj[key], currentAgent, key, currentTime);
       }
     }
   }
@@ -386,6 +406,14 @@ export function parseAITrainingJSON(
       }
     }
   }
+
+  // Sort events chronologically if they have a timestamp
+  events.sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    }
+    return 0; // maintain original relative order if no timestamp
+  });
 
   // Deduplicate and process events: pair tool responses with their function calls if IDs match
   const functionMap = new Map<string, ParsedEvent>();
