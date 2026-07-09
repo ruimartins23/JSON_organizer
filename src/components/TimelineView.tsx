@@ -18,12 +18,13 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   
   const [selectedAgent, setSelectedAgent] = useState<'A' | 'B'>('A');
   const [taskNumber, setTaskNumber] = useState('');
+  const [clarity, setClarity] = useState<'Clear' | 'Noisy'>('Clear');
 
   useEffect(() => {
     const taskStr = taskNumber.trim() ? taskNumber.trim() : '(task number)';
-    setSummaryFileName(`Telco-AM-${taskStr}-Clear-JSON-${selectedAgent}.txt`);
-    setTranscriptFileName(`Telco-AM-${taskStr}-Clear-Transcript-${selectedAgent}.txt`);
-  }, [selectedAgent, taskNumber]);
+    setSummaryFileName(`Telco-AM-${taskStr}-${clarity}-JSON-${selectedAgent}.txt`);
+    setTranscriptFileName(`Telco-AM-${taskStr}-${clarity}-Transcript-${selectedAgent}.txt`);
+  }, [selectedAgent, taskNumber, clarity]);
 
   const [showTranscripts, setShowTranscripts] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
@@ -278,6 +279,19 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
                   style={{ width: '120px', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem' }}
                 />
               </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Task Type:</span>
+                <select 
+                  value={clarity}
+                  onChange={(e) => setClarity(e.target.value as 'Clear' | 'Noisy')}
+                  className="glass"
+                  style={{ padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem', outline: 'none' }}
+                >
+                  <option value="Clear" style={{ background: 'var(--card)' }}>Clear</option>
+                  <option value="Noisy" style={{ background: 'var(--card)' }}>Noisy</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -395,7 +409,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           if (event.type === 'transfer' && !showTransfers) return false;
           return true;
         }).map((event, idx) => (
-          <TimelineItem key={event.id || idx} event={event} />
+          <TimelineItem key={event.id || idx} event={event} index={idx} />
         ))}
         {data.events.length === 0 && (
           <div className="timeline-empty glass">
@@ -407,7 +421,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   );
 }
 
-function TimelineItem({ event }: { event: ParsedEvent }) {
+function TimelineItem({ event, index }: { event: ParsedEvent, index: number }) {
   const [expanded, setExpanded] = useState(false);
 
   const getEventConfig = (type: string) => {
@@ -425,7 +439,10 @@ function TimelineItem({ event }: { event: ParsedEvent }) {
 
   // Render a completely flat layout without any timeline dots or glass cards
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', padding: '0.35rem 0' }}>
+    <div 
+      className="animate-slide-up"
+      style={{ display: 'flex', flexDirection: 'column', padding: '0.35rem 0', animationDelay: `${index * 50}ms` }}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
         <span className={`badge ${event.type === 'message' ? (event.messageRole === 'user' ? 'primary' : 'accent') : 'diag'}`} 
               style={{ marginRight: '1rem', minWidth: '4.5rem', textAlign: 'center', marginTop: '0.1rem', cursor: (event.arguments || event.raw) && event.type !== 'message' ? 'pointer' : 'default' }}
