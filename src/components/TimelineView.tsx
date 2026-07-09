@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import { Activity, Copy, Download } from 'lucide-react';
 
@@ -16,6 +16,15 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [summaryFileName, setSummaryFileName] = useState('Telco-AM-(task number)-Clear-JSON-A.txt');
   const [transcriptFileName, setTranscriptFileName] = useState('Telco-AM-(task number)-Clear-Transcript-A.txt');
   
+  const [selectedAgent, setSelectedAgent] = useState<'A' | 'B'>('A');
+  const [taskNumber, setTaskNumber] = useState('');
+
+  useEffect(() => {
+    const taskStr = taskNumber.trim() ? taskNumber.trim() : '(task number)';
+    setSummaryFileName(`Telco-AM-${taskStr}-Clear-JSON-${selectedAgent}.txt`);
+    setTranscriptFileName(`Telco-AM-${taskStr}-Clear-Transcript-${selectedAgent}.txt`);
+  }, [selectedAgent, taskNumber]);
+
   const [showTranscripts, setShowTranscripts] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
   const [showTransfers, setShowTransfers] = useState(true);
@@ -228,49 +237,75 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         </div>
       )}
 
-      <div className="export-section glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.8rem' }}>
-          <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Download style={{ width: '1.2rem', height: '1.2rem', color: 'var(--primary)' }} />
-            Export Files
-          </h3>
-          <button onClick={handleDownloadAll} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 1rem' }}>
+      <div className="export-section glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-glass)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <h3 className="text-foreground" style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Download style={{ width: '1.2rem', height: '1.2rem', color: 'var(--primary)' }} />
+              Export Options
+            </h3>
+            
+            <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Agent Target:</span>
+                <div className="segmented-control" style={{ margin: 0, padding: '2px', minHeight: '28px' }}>
+                  <button 
+                    className={`segment-btn ${selectedAgent === 'A' ? 'active' : ''}`}
+                    onClick={() => setSelectedAgent('A')}
+                    style={{ padding: '0.2rem 1rem', fontSize: '0.8rem' }}
+                  >
+                    A
+                  </button>
+                  <button 
+                    className={`segment-btn ${selectedAgent === 'B' ? 'active' : ''}`}
+                    onClick={() => setSelectedAgent('B')}
+                    style={{ padding: '0.2rem 1rem', fontSize: '0.8rem' }}
+                  >
+                    B
+                  </button>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Task Number:</span>
+                <input 
+                  type="text" 
+                  value={taskNumber} 
+                  onChange={(e) => setTaskNumber(e.target.value)}
+                  placeholder="e.g. 12"
+                  className="glass"
+                  style={{ width: '120px', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button onClick={handleDownloadAll} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', height: 'fit-content', marginTop: '0.2rem' }}>
             <Download style={{ width: '1rem', height: '1rem' }} />
             Download Both
           </button>
         </div>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-glass)', padding: '1rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Raw JSON File</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Downloads the JSON</span>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <input 
-                type="text" 
-                value={summaryFileName} 
-                onChange={(e) => setSummaryFileName(e.target.value)}
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem', minWidth: 0 }}
-              />
-              <button onClick={handleDownloadSummary} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'var(--bg-glass)', padding: '1.2rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Raw JSON File</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{summaryFileName}</span>
+            <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+              <button onClick={handleDownloadSummary} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', width: '100%', justifyContent: 'center' }}>
                 <Download style={{ width: '1rem', height: '1rem' }} />
-                JSON
+                Download JSON
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-glass)', padding: '1rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Transcript Text</span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Download the transcript</span>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <input 
-                type="text" 
-                value={transcriptFileName} 
-                onChange={(e) => setTranscriptFileName(e.target.value)}
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.85rem', minWidth: 0 }}
-              />
-              <button onClick={handleDownloadTranscript} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'var(--bg-glass)', padding: '1.2rem', borderRadius: '0.8rem', border: '1px solid var(--border-glass)' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-foreground)' }}>Transcript Text</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{transcriptFileName}</span>
+            <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+              <button onClick={handleDownloadTranscript} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', width: '100%', justifyContent: 'center' }}>
                 <Download style={{ width: '1rem', height: '1rem' }} />
-                TXT
+                Download Transcript
               </button>
             </div>
           </div>

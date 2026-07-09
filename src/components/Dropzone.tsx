@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2 } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 
@@ -14,6 +14,14 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [functionKeyword, setFunctionKeyword] = useState('toolCall');
   const [transferKeyword, setTransferKeyword] = useState('agentTransfer');
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDropzoneClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
   const handleModeChange = (newMode: EnvironmentMode) => {
     setMode(newMode);
@@ -201,7 +209,9 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onClick={handleDropzoneClick}
           className={`glass dropzone-area ${isDragging ? 'dragging' : ''}`}
+          style={{ cursor: 'pointer' }}
         >
           <div className="dropzone-icon-bg">
             <Upload className="dropzone-icon" />
@@ -211,16 +221,18 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             Drag and drop your .txt file here, or click to browse
           </p>
           
-          <label className="btn-primary">
+          <div className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <FileJson className="w-4 h-4" style={{ width: '1rem', height: '1rem' }} />
             Select File
-            <input 
-              type="file" 
-              accept=".txt" 
-              className="hidden-input" 
-              onChange={handleFileInput}
-            />
-          </label>
+          </div>
+          <input 
+            type="file" 
+            accept=".txt" 
+            className="hidden-input" 
+            onChange={handleFileInput}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
         </div>
 
         <div className="divider">
