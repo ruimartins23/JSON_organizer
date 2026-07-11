@@ -10,8 +10,8 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pastedText, setPastedText] = useState('');
-  const [mode, setMode] = useState<EnvironmentMode>('pre-prod');
-  const [functionKeyword, setFunctionKeyword] = useState('toolCall');
+  const [mode, setMode] = useState<EnvironmentMode>('prod single agent');
+  const [functionKeyword, setFunctionKeyword] = useState('PythonFunctionTool');
   const [transferKeyword, setTransferKeyword] = useState('agentTransfer');
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
 
@@ -109,12 +109,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
         </p>
         <div className="segmented-control">
           <button 
-            className={`segment-btn ${mode === 'pre-prod' ? 'active' : ''}`}
-            onClick={() => handleModeChange('pre-prod')}
-          >
-            Pre-Prod
-          </button>
-          <button 
             className={`segment-btn ${mode === 'prod single agent' ? 'active' : ''}`}
             onClick={() => handleModeChange('prod single agent')}
           >
@@ -125,6 +119,12 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             onClick={() => handleModeChange('prod multi agent')}
           >
             Prod Multi Agent
+          </button>
+          <button 
+            className={`segment-btn ${mode === 'pre-prod' ? 'active' : ''}`}
+            onClick={() => handleModeChange('pre-prod')}
+          >
+            Pre-Prod
           </button>
         </div>
 

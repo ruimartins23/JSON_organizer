@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Activity, Copy, Download } from 'lucide-react';
+import { Activity, Copy, Download, AlertTriangle } from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -165,6 +165,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     handleDownloadTranscript();
   };
 
+  const showSecurityWarning = data.hasEnvironmentMismatch;
+
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
       <div className="timeline-header glass">
@@ -193,6 +195,18 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           Upload New File
         </button>
       </div>
+
+      {showSecurityWarning && (
+        <div className="glass" style={{ marginBottom: '1.5rem', padding: '1.5rem', borderRadius: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--destructive)' }}>
+          <AlertTriangle style={{ width: '2rem', height: '2rem', flexShrink: 0 }} />
+          <div>
+            <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem' }}>Security Warning: Environment Mismatch</h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-foreground)', marginTop: '0.3rem' }}>
+              You are uploading a multi-agent JSON file (contains agent transfers) into a single-agent environment. Please verify your environment settings.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="dashboard glass" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', padding: '1rem', borderRadius: '1rem' }}>
         <div style={{ flex: 1, textAlign: 'center', padding: '1rem', background: 'var(--bg-glass)', borderRadius: '0.5rem', border: '1px solid var(--border-glass)' }}>

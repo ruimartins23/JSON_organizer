@@ -24,6 +24,7 @@ export interface OrganizedTimeline {
   sessionId?: string;
   duration?: string;
   rawJsonText?: string;
+  hasEnvironmentMismatch?: boolean;
   events: ParsedEvent[];
 }
 
@@ -50,6 +51,8 @@ export function parseAITrainingJSON(
 
   // We will collect rootSpans during traversal for the highest precision duration
   const rootSpans: {start: number, end: number}[] = [];
+  
+  let hasEnvironmentMismatch = false;
 
   // Recursively search the JSON for useful objects
   function traverse(obj: any, parentAgent?: string, structuralKey?: string, parentTime?: string) {
@@ -164,6 +167,13 @@ export function parseAITrainingJSON(
         obj[funcKeyLower] || 
         (funcKeyLower === 'toolcall' && obj.toolCall)
       );
+
+      const isActuallyTransfer = isConfigTransfer || 
+        (config.transferKeyword === 'TransferToAgentTool' && (obj.transfertoagenttool || obj.agentTransfer));
+
+      if (isActuallyTransfer && mode !== 'prod multi agent') {
+        hasEnvironmentMismatch = true;
+      }
 
       if (mode === 'pre-prod') {
         if (isConfigFunction || obj.toolCall) {
@@ -472,6 +482,7 @@ export function parseAITrainingJSON(
     agentType: mode,
     sessionId: sessionId,
     duration: durationStr,
+    hasEnvironmentMismatch: hasEnvironmentMismatch,
     rawJsonText: JSON.stringify(data, null, 2),
     events: finalEvents
   };
