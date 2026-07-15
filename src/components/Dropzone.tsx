@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2 } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 
@@ -48,16 +48,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     setFunctionKeyword(newMode === 'pre-prod' ? 'toolCall' : 'PythonFunctionTool');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
   const processText = (text: string) => {
     try {
       const json = JSON.parse(text);
@@ -85,13 +75,43 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     reader.readAsText(file);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) {
-      processFile(e.dataTransfer.files[0]);
-    }
-  };
+  // Accept file drops anywhere on the page, not just inside the dropzone box.
+  const processFileRef = useRef(processFile);
+  processFileRef.current = processFile;
+
+  useEffect(() => {
+    let depth = 0;
+
+    const onDragEnter = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        depth++;
+        setIsDragging(true);
+      }
+    };
+    const onDragLeave = () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setIsDragging(false);
+    };
+    const onDragOver = (e: DragEvent) => e.preventDefault();
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      depth = 0;
+      setIsDragging(false);
+      const file = e.dataTransfer?.files?.[0];
+      if (file) processFileRef.current(file);
+    };
+
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, []);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -179,9 +199,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
 
       <div className="upload-section animate-fade-in">
         <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           className={`glass dropzone-area ${isDragging ? 'dragging' : ''}`}
         >
@@ -229,6 +246,15 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
       {error && (
         <div className="error-message animate-fade-in">
           {error}
+        </div>
+      )}
+
+      {isDragging && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-inner">
+            <Upload className="drop-overlay-icon" />
+            <span>Drop it anywhere</span>
+          </div>
         </div>
       )}
     </div>

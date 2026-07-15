@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Activity, Copy, Download, AlertTriangle } from 'lucide-react';
+import { Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces, ArrowLeftRight } from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -24,6 +25,17 @@ function useCopyToClipboard(idleLabel: string): [string, (text: string | undefin
   };
 
   return [label, copy];
+}
+
+// Stable, distinct hue per agent name so each agent keeps its color across the session
+const AGENT_HUES = [265, 190, 330, 45, 150, 15, 285, 110];
+
+function agentHue(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return AGENT_HUES[hash % AGENT_HUES.length];
 }
 
 function getTransferTarget(event: ParsedEvent): string {
@@ -116,6 +128,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [showTranscripts, setShowTranscripts] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
   const [showTransfers, setShowTransfers] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const taskStr = taskNumber.trim() || '(task number)';
   const summaryFileName = `Telco-AM-${taskStr}-${clarity}-JSON-${selectedAgent}.txt`;
@@ -144,10 +157,19 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     if (downloadTranscriptText) downloadFile(downloadTranscriptText, transcriptFileName);
   };
 
+  const query = searchQuery.trim().toLowerCase();
+  const matchesQuery = (event: ParsedEvent) =>
+    !query ||
+    (event.toolName || '').toLowerCase().includes(query) ||
+    (event.messageContent || '').toLowerCase().includes(query) ||
+    String(event.raw?.agent || '').toLowerCase().includes(query) ||
+    (event.type === 'transfer' && getTransferTarget(event).toLowerCase().includes(query));
+
   const visibleEvents = data.events.filter(event => {
-    if (event.type === 'message') return showTranscripts;
-    if (event.type === 'transfer') return showTransfers;
-    return showFunctions; // function, endsession, tool_response
+    if (event.type === 'message' && !showTranscripts) return false;
+    if (event.type === 'transfer' && !showTransfers) return false;
+    if (event.type !== 'message' && event.type !== 'transfer' && !showFunctions) return false;
+    return matchesQuery(event);
   });
 
   return (
@@ -188,15 +210,18 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
 
       <div className="stats-row">
         <div className="stat-card glass">
+          <MessageSquare className="stat-icon" />
           <div className="stat-value">{stats.messages}</div>
           <div className="stat-label">Transcript Turns</div>
         </div>
         <div className="stat-card glass">
+          <Braces className="stat-icon" />
           <div className="stat-value">{stats.functions}</div>
           <div className="stat-label">Functions Executed</div>
         </div>
         {data.agentType === 'prod multi agent' && (
           <div className="stat-card glass">
+            <ArrowLeftRight className="stat-icon" />
             <div className="stat-value">{stats.transfers}</div>
             <div className="stat-label">Agent Transfers</div>
           </div>
@@ -349,6 +374,17 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             Show Transfers
           </label>
         )}
+        <div className="filter-search">
+          <Search className="filter-search-icon" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search events..."
+            className="text-input"
+          />
+          <span className="filter-count">{visibleEvents.length}/{data.events.length}</span>
+        </div>
       </div>
 
       <div className="timeline-list">
@@ -358,6 +394,11 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         {data.events.length === 0 && (
           <div className="timeline-empty glass">
             No supported tools or events found in this JSON file.
+          </div>
+        )}
+        {data.events.length > 0 && visibleEvents.length === 0 && (
+          <div className="timeline-empty glass">
+            No events match the current filters.
           </div>
         )}
       </div>
@@ -379,9 +420,21 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
   const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
 
   const eventBadge = EVENT_BADGES[event.type] || { label: 'UNKNOWN', variant: 'diag' };
-  const badgeVariant = isMessage
-    ? (event.messageRole === 'user' ? 'primary' : 'accent')
-    : eventBadge.variant;
+  const role = (event.messageRole || 'system').toLowerCase();
+
+  let badgeVariant = eventBadge.variant;
+  let badgeStyle: CSSProperties | undefined;
+  if (isMessage) {
+    if (role === 'user') {
+      badgeVariant = 'primary';
+    } else if (role === 'system' || role === 'agent') {
+      badgeVariant = 'accent';
+    } else {
+      // Named agents each get a stable hue of their own
+      badgeVariant = 'agent';
+      badgeStyle = { '--agent-h': agentHue(role) } as CSSProperties;
+    }
+  }
   const badgeText = isMessage
     ? (event.messageRole ? event.messageRole.toUpperCase() : 'SYSTEM')
     : eventBadge.label;
@@ -392,12 +445,13 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
 
   return (
     <div
-      className="timeline-row animate-slide-up"
+      className={`timeline-row type-${event.type} animate-slide-up`}
       style={{ animationDelay: `${Math.min(index * 40, 800)}ms` }}
     >
       <div className="timeline-row-main">
         <span
           className={`badge ${badgeVariant} ${hasDetails ? 'clickable' : ''}`}
+          style={badgeStyle}
           onClick={toggleDetails}
         >
           {badgeText}

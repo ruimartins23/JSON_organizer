@@ -580,6 +580,42 @@ input, textarea, select {
   justify-content: flex-end;
 }
 
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(8, 8, 13, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeInScale 0.2s ease both;
+}
+
+.drop-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 4rem;
+  border: 2px dashed rgba(96, 165, 250, 0.6);
+  border-radius: 1.5rem;
+  background: rgba(59, 130, 246, 0.08);
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  box-shadow: 0 0 60px rgba(59, 130, 246, 0.25);
+}
+
+.drop-overlay-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--primary);
+  animation: floatIcon 1.5s ease-in-out infinite;
+}
+
 .error-message {
   margin-top: 1.5rem;
   padding: 1rem;
@@ -631,6 +667,13 @@ input, textarea, select {
   background: rgba(52, 211, 153, 0.12);
   color: var(--success);
   border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+/* Per-agent identity color, driven by --agent-h set inline */
+.badge.agent {
+  background: hsl(var(--agent-h) 75% 62% / 0.13);
+  color: hsl(var(--agent-h) 90% 74%);
+  border: 1px solid hsl(var(--agent-h) 75% 62% / 0.35);
 }
 
 /* ---------- Timeline header / stats ---------- */
@@ -706,6 +749,12 @@ input, textarea, select {
 .stat-card {
   text-align: center;
   padding: 1.1rem 1rem;
+}
+
+.stat-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--text-muted);
 }
 
 .stat-value {
@@ -891,14 +940,44 @@ input, textarea, select {
   display: flex;
   gap: 1.5rem;
   margin-bottom: 1.5rem;
-  padding: 1rem 1.5rem;
+  padding: 0.85rem 1.5rem;
   align-items: center;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 30;
 }
 
 .filter-bar-label {
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.filter-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+  min-width: 220px;
+}
+
+.filter-search .text-input {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.filter-search-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filter-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
 .timeline-list {
@@ -929,6 +1008,31 @@ input, textarea, select {
   display: flex;
   flex-direction: column;
   padding: 0.35rem 0 0.35rem 1rem;
+  position: relative;
+}
+
+/* Type-colored dot anchoring each event to the timeline spine */
+.timeline-row::before {
+  content: '';
+  position: absolute;
+  left: calc(-1rem - 2px);
+  top: 0.95rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 0 0 3px var(--background);
+}
+
+.timeline-row.type-function::before { background: var(--warning); }
+.timeline-row.type-endsession::before { background: var(--destructive); }
+.timeline-row.type-tool_response::before { background: var(--success); }
+.timeline-row.type-transfer::before {
+  background: var(--accent);
+  width: 8px;
+  height: 8px;
+  left: calc(-1rem - 3px);
+  box-shadow: 0 0 0 3px var(--background), 0 0 10px var(--accent-glow);
 }
 
 .timeline-row-main {
