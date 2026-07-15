@@ -365,18 +365,26 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   );
 }
 
+const EVENT_BADGES: Record<string, { label: string; variant: string }> = {
+  function: { label: 'TOOL', variant: 'diag' },
+  transfer: { label: 'TRANSFER', variant: 'accent' },
+  endsession: { label: 'END', variant: 'destructive' },
+  tool_response: { label: 'RESPONSE', variant: 'success' },
+};
+
 function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
   const [expanded, setExpanded] = useState(false);
 
   const isMessage = event.type === 'message';
-  const hasDetails = !isMessage && !!(event.arguments || event.raw);
+  const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
 
+  const eventBadge = EVENT_BADGES[event.type] || { label: 'UNKNOWN', variant: 'diag' };
   const badgeVariant = isMessage
     ? (event.messageRole === 'user' ? 'primary' : 'accent')
-    : 'diag';
+    : eventBadge.variant;
   const badgeText = isMessage
     ? (event.messageRole ? event.messageRole.toUpperCase() : 'SYSTEM')
-    : 'DIAG';
+    : eventBadge.label;
 
   const toggleDetails = () => {
     if (hasDetails) setExpanded(prev => !prev);
@@ -399,7 +407,7 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
           <div className="message-content">{event.messageContent}</div>
         ) : (
           <div className="tool-line" onClick={toggleDetails}>
-            <span className="tool-line-caret">&gt;</span>
+            <span className={`tool-line-caret ${expanded ? 'expanded' : ''}`}>&#9656;</span>
             <span className="tool-line-name">
               {event.toolName || (event.type === 'tool_response' ? 'Tool Response Output' : 'Unknown Tool')}
             </span>
@@ -419,7 +427,14 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
         <div className="event-details animate-fade-in">
           {event.arguments && (
             <div className="data-block args">
+              <div className="data-label">Arguments</div>
               <pre>{typeof event.arguments === 'string' ? event.arguments : JSON.stringify(event.arguments, null, 2)}</pre>
+            </div>
+          )}
+          {event.response && (
+            <div className="data-block resp">
+              <div className="data-label">Response</div>
+              <pre>{typeof event.response === 'string' ? event.response : JSON.stringify(event.response, null, 2)}</pre>
             </div>
           )}
 

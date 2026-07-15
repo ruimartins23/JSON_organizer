@@ -621,6 +621,18 @@ input, textarea, select {
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.badge.destructive {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--destructive);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.badge.success {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
 /* ---------- Timeline header / stats ---------- */
 
 .timeline-header {
@@ -960,6 +972,12 @@ input, textarea, select {
 .tool-line-caret {
   color: var(--primary);
   font-weight: 700;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.tool-line-caret.expanded {
+  transform: rotate(90deg);
 }
 
 .tool-line-name {
@@ -1001,6 +1019,20 @@ input, textarea, select {
 }
 
 .data-block.args { color: #93c5fd; }
+.data-block.resp { color: #6ee7b7; }
+
+.data-block + .data-block {
+  margin-top: 0.5rem;
+}
+
+.data-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
 
 .raw-data-summary {
   font-size: 0.8rem;
