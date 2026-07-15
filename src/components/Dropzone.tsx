@@ -1,9 +1,35 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2 } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 
 interface DropzoneProps {
-  onFileParsed: (data: any, mode: EnvironmentMode, config: ParserConfig) => void;
+  onFileParsed: (data: unknown, mode: EnvironmentMode, config: ParserConfig) => void;
+}
+
+const MODES: { value: EnvironmentMode; label: string }[] = [
+  { value: 'prod single agent', label: 'Prod Single Agent' },
+  { value: 'prod multi agent', label: 'Prod Multi Agent' },
+  { value: 'pre-prod', label: 'Pre-Prod' },
+];
+
+function KeywordChips({ options, value, onSelect }: {
+  options: string[];
+  value: string;
+  onSelect: (keyword: string) => void;
+}) {
+  return (
+    <div className="chip-row">
+      {options.map(option => (
+        <button
+          key={option}
+          onClick={() => onSelect(option)}
+          className={`keyword-chip ${value === option ? 'active' : ''}`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export function Dropzone({ onFileParsed }: DropzoneProps) {
@@ -17,39 +43,25 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDropzoneClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
   const handleModeChange = (newMode: EnvironmentMode) => {
     setMode(newMode);
-    if (newMode === 'pre-prod') {
-      setFunctionKeyword('toolCall');
-    } else {
-      setFunctionKeyword('PythonFunctionTool');
-    }
+    setFunctionKeyword(newMode === 'pre-prod' ? 'toolCall' : 'PythonFunctionTool');
   };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
-  }, []);
+  };
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-  }, []);
+  };
 
   const processText = (text: string) => {
     try {
       const json = JSON.parse(text);
-      onFileParsed(json, mode, { 
-        functionKeyword, 
-        transferKeyword, 
-        endSessionKeyword: endSessionKeyword 
-      });
+      onFileParsed(json, mode, { functionKeyword, transferKeyword, endSessionKeyword });
       setError(null);
     } catch (err: any) {
       console.error(err);
@@ -58,8 +70,8 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   };
 
   const processFile = (file: File) => {
-    if (!file.name.endsWith('.txt')) {
-      setError('Please upload a valid .txt file.');
+    if (!file.name.endsWith('.txt') && !file.name.endsWith('.json')) {
+      setError('Please upload a valid .txt or .json file.');
       return;
     }
     setError(null);
@@ -73,13 +85,13 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     reader.readAsText(file);
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
     }
-  }, [onFileParsed, mode, functionKeyword, transferKeyword, endSessionKeyword]);
+  };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -97,141 +109,100 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
 
   return (
     <div className="dropzone-container">
-      
-      {/* Mode Selector */}
       <div className="mode-selector glass animate-fade-in">
         <div className="mode-selector-header">
-          <Settings2 style={{ width: '1.25rem', height: '1.25rem', color: 'var(--primary)' }} />
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--foreground)' }}>Select Target Environment</h3>
+          <Settings2 className="btn-icon" style={{ color: 'var(--primary)' }} />
+          <h3 className="panel-title">Select Target Environment</h3>
         </div>
-        <p style={{ color: 'rgba(248,250,252,0.7)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+        <p className="mode-selector-hint">
           Choose your environment to filter exactly which tool structures to look for.
         </p>
         <div className="segmented-control">
-          <button 
-            className={`segment-btn ${mode === 'prod single agent' ? 'active' : ''}`}
-            onClick={() => handleModeChange('prod single agent')}
-          >
-            Prod Single Agent
-          </button>
-          <button 
-            className={`segment-btn ${mode === 'prod multi agent' ? 'active' : ''}`}
-            onClick={() => handleModeChange('prod multi agent')}
-          >
-            Prod Multi Agent
-          </button>
-          <button 
-            className={`segment-btn ${mode === 'pre-prod' ? 'active' : ''}`}
-            onClick={() => handleModeChange('pre-prod')}
-          >
-            Pre-Prod
-          </button>
+          {MODES.map(({ value, label }) => (
+            <button
+              key={value}
+              className={`segment-btn ${mode === value ? 'active' : ''}`}
+              onClick={() => handleModeChange(value)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Dynamic Config Panel */}
-        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
-              Function Tool Keyword
-            </label>
-            <input 
-              type="text" 
+        <div className="config-grid">
+          <div className="config-field">
+            <label className="field-label">Function Tool Keyword</label>
+            <input
+              type="text"
               value={functionKeyword}
               placeholder={mode === 'pre-prod' ? 'toolCall' : 'PythonFunctionTool'}
               onChange={(e) => setFunctionKeyword(e.target.value)}
-              className="glass"
-              style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
+              className="text-input"
             />
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setFunctionKeyword('toolCall'); }}
-                className={`keyword-chip ${functionKeyword === 'toolCall' ? 'active' : ''}`}
-              >
-                toolCall
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setFunctionKeyword('PythonFunctionTool'); }}
-                className={`keyword-chip ${functionKeyword === 'PythonFunctionTool' ? 'active' : ''}`}
-              >
-                PythonFunctionTool
-              </button>
-            </div>
+            <KeywordChips
+              options={['toolCall', 'PythonFunctionTool']}
+              value={functionKeyword}
+              onSelect={setFunctionKeyword}
+            />
           </div>
           {mode === 'prod multi agent' && (
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
-                Transfer Tool Keyword
-              </label>
-              <input 
-                type="text" 
+            <div className="config-field">
+              <label className="field-label">Transfer Tool Keyword</label>
+              <input
+                type="text"
                 value={transferKeyword}
                 placeholder="agentTransfer"
                 onChange={(e) => setTransferKeyword(e.target.value)}
-                className="glass"
-                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
+                className="text-input"
               />
             </div>
           )}
           {mode !== 'pre-prod' && (
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(248,250,252,0.7)', marginBottom: '0.4rem' }}>
-                End Session Tool Keyword
-              </label>
-              <input 
-                type="text" 
+            <div className="config-field">
+              <label className="field-label">End Session Tool Keyword</label>
+              <input
+                type="text"
                 value={endSessionKeyword}
                 placeholder="EndSessionTool"
                 onChange={(e) => setEndSessionKeyword(e.target.value)}
-                className="glass"
-                style={{ width: '100%', padding: '0.5rem 0.8rem', borderRadius: '0.5rem', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-foreground)', fontSize: '0.9rem' }}
+                className="text-input"
               />
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setEndSessionKeyword('toolCall'); }}
-                    className={`keyword-chip ${endSessionKeyword === 'toolCall' ? 'active' : ''}`}
-                  >
-                    toolCall
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setEndSessionKeyword('EndSessionTool'); }}
-                    className={`keyword-chip ${endSessionKeyword === 'EndSessionTool' ? 'active' : ''}`}
-                  >
-                    EndSessionTool
-                  </button>
-                </div>
+              <KeywordChips
+                options={['toolCall', 'EndSessionTool']}
+                value={endSessionKeyword}
+                onSelect={setEndSessionKeyword}
+              />
             </div>
           )}
         </div>
       </div>
 
-      <div className="upload-section animate-fade-in" style={{ marginTop: '2rem' }}>
+      <div className="upload-section animate-fade-in">
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={handleDropzoneClick}
+          onClick={() => fileInputRef.current?.click()}
           className={`glass dropzone-area ${isDragging ? 'dragging' : ''}`}
-          style={{ cursor: 'pointer' }}
         >
           <div className="dropzone-icon-bg">
             <Upload className="dropzone-icon" />
           </div>
-          <h3 className="dropzone-title text-foreground">Upload JSON File</h3>
+          <h3 className="dropzone-title">Upload JSON File</h3>
           <p className="dropzone-subtitle">
-            Drag and drop your .txt file here, or click to browse
+            Drag and drop your .txt or .json file here, or click to browse
           </p>
-          
-          <div className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            <FileJson className="w-4 h-4" style={{ width: '1rem', height: '1rem' }} />
+
+          <div className="btn-primary">
+            <FileJson className="btn-icon" />
             Select File
           </div>
-          <input 
-            type="file" 
-            accept=".txt" 
-            className="hidden-input" 
+          <input
+            type="file"
+            accept=".txt,.json"
+            style={{ display: 'none' }}
             onChange={handleFileInput}
             ref={fileInputRef}
-            style={{ display: 'none' }}
           />
         </div>
 
@@ -248,15 +219,15 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           />
           <div className="paste-actions">
             <button className="btn-primary" onClick={handlePasteSubmit}>
-              <ClipboardPaste style={{ width: '1rem', height: '1rem' }} />
+              <ClipboardPaste className="btn-icon" />
               Process Pasted Text
             </button>
           </div>
         </div>
       </div>
-      
+
       {error && (
-        <div className="error-message animate-fade-in" style={{ marginTop: '1.5rem' }}>
+        <div className="error-message animate-fade-in">
           {error}
         </div>
       )}

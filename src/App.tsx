@@ -2,20 +2,17 @@ import { useState } from 'react';
 import { Dropzone } from './components/Dropzone';
 import { TimelineView } from './components/TimelineView';
 import { parseAITrainingJSON } from './utils/parser';
-import type { OrganizedTimeline, EnvironmentMode } from './utils/parser';
+import type { OrganizedTimeline, EnvironmentMode, ParserConfig } from './utils/parser';
 import { BrainCircuit } from 'lucide-react';
 
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
 
-  const handleFileParsed = (data: any, mode: EnvironmentMode, config: any) => {
-    const parsed = parseAITrainingJSON(data, mode, config);
-    setTimelineData(parsed);
+  const handleFileParsed = (data: unknown, mode: EnvironmentMode, config: ParserConfig) => {
+    setTimelineData(parseAITrainingJSON(data, mode, config));
   };
 
-  const reset = () => {
-    setTimelineData(null);
-  };
+  const reset = () => setTimelineData(null);
 
   return (
     <div className="gradient-bg app-container">
