@@ -739,6 +739,69 @@ input, textarea, select {
   color: var(--text-secondary);
 }
 
+/* ---------- Session flow map ---------- */
+
+.flow-map {
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.flow-map-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.flow-track {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.flow-segment {
+  flex-basis: 0;
+  min-width: 70px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--agent-h) 75% 62% / 0.12);
+  border: 1px solid hsl(var(--agent-h) 75% 62% / 0.35);
+  color: hsl(var(--agent-h) 90% 76%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flow-segment:hover {
+  background: hsl(var(--agent-h) 75% 62% / 0.24);
+  box-shadow: 0 0 12px hsl(var(--agent-h) 75% 62% / 0.3);
+}
+
+.flow-count {
+  opacity: 0.65;
+  font-weight: 400;
+}
+
+.flow-arrow {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -980,6 +1043,15 @@ input, textarea, select {
   white-space: nowrap;
 }
 
+.filter-expand-btns {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.filter-expand-btns .btn-secondary {
+  padding: 0.4rem 0.5rem;
+}
+
 .timeline-list {
   position: relative;
   padding: 0.5rem 0 3rem 1rem;
@@ -1033,6 +1105,27 @@ input, textarea, select {
   height: 8px;
   left: calc(-1rem - 3px);
   box-shadow: 0 0 0 3px var(--background), 0 0 10px var(--accent-glow);
+}
+
+@keyframes flashRow {
+  0% { background: rgba(96, 165, 250, 0.2); }
+  100% { background: transparent; }
+}
+
+.timeline-row.flash {
+  animation: flashRow 1.4s ease-out;
+  border-radius: var(--radius-sm);
+}
+
+.event-offset {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .timeline-row-main {

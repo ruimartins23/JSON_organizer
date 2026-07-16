@@ -1,7 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
-import { Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces, ArrowLeftRight } from 'lucide-react';
+import {
+  Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces,
+  ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp,
+} from 'lucide-react';
 
 interface TimelineViewProps {
   data: OrganizedTimeline;
@@ -41,6 +44,72 @@ function agentHue(name: string): number {
 function getTransferTarget(event: ParsedEvent): string {
   const args = event.arguments;
   return args?.displayName || args?.targetAgent || args?.agent_name || args?.target || args?.destination || args?.agent || 'Unknown Agent';
+}
+
+interface FlowSegment {
+  agent: string;
+  count: number;
+  startIndex: number;
+}
+
+// Collapse the event list into consecutive runs of "which agent owns the conversation",
+// using transfers as boundaries. User/system events inherit the current segment.
+function buildFlowSegments(events: ParsedEvent[]): FlowSegment[] {
+  const segments: FlowSegment[] = [];
+  let current: string | null = null;
+
+  events.forEach((event, i) => {
+    let agent: string | null = current;
+
+    if (event.type === 'function' || event.type === 'endsession' || event.type === 'transfer') {
+      agent = event.raw?.agent || current;
+    } else if (event.type === 'message') {
+      const role = (event.messageRole || '').toLowerCase();
+      if (role && role !== 'user' && role !== 'system' && role !== 'agent') {
+        agent = event.messageRole!;
+      }
+    }
+
+    if (!agent) agent = 'Session Start';
+
+    const last = segments[segments.length - 1];
+    if (last && last.agent === agent) {
+      last.count++;
+    } else {
+      segments.push({ agent, count: 1, startIndex: i });
+    }
+
+    current = agent;
+    if (event.type === 'transfer') {
+      current = getTransferTarget(event);
+    }
+  });
+
+  // Fold leading events that happened before any agent was known into the first real segment
+  if (segments.length > 1 && segments[0].agent === 'Session Start') {
+    segments[1].count += segments[0].count;
+    segments[1].startIndex = segments[0].startIndex;
+    segments.shift();
+  }
+
+  return segments;
+}
+
+function jumpToEvent(globalIndex: number) {
+  const el = document.getElementById(`event-row-${globalIndex}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('flash');
+  // Restart the flash animation even when jumping to the same row twice
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function formatOffset(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `+${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 // Ensure sections are separated by a blank line before appending.
@@ -129,6 +198,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [showFunctions, setShowFunctions] = useState(true);
   const [showTransfers, setShowTransfers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandSignal, setExpandSignal] = useState({ version: 0, open: false });
 
   const taskStr = taskNumber.trim() || '(task number)';
   const summaryFileName = `Telco-AM-${taskStr}-${clarity}-JSON-${selectedAgent}.txt`;
@@ -149,6 +219,15 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     [data]
   );
 
+  const flowSegments = useMemo(() => buildFlowSegments(data.events), [data.events]);
+
+  const sessionStartMs = useMemo(() => {
+    const times = data.events
+      .map(e => (e.timestamp ? new Date(e.timestamp).getTime() : NaN))
+      .filter(t => !isNaN(t));
+    return times.length > 0 ? Math.min(...times) : null;
+  }, [data.events]);
+
   const handleDownloadJson = () => {
     if (data.rawJsonText) downloadFile(data.rawJsonText, summaryFileName);
   };
@@ -165,12 +244,14 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     String(event.raw?.agent || '').toLowerCase().includes(query) ||
     (event.type === 'transfer' && getTransferTarget(event).toLowerCase().includes(query));
 
-  const visibleEvents = data.events.filter(event => {
-    if (event.type === 'message' && !showTranscripts) return false;
-    if (event.type === 'transfer' && !showTransfers) return false;
-    if (event.type !== 'message' && event.type !== 'transfer' && !showFunctions) return false;
-    return matchesQuery(event);
-  });
+  const visibleEvents = data.events
+    .map((event, globalIndex) => ({ event, globalIndex }))
+    .filter(({ event }) => {
+      if (event.type === 'message' && !showTranscripts) return false;
+      if (event.type === 'transfer' && !showTransfers) return false;
+      if (event.type !== 'message' && event.type !== 'transfer' && !showFunctions) return false;
+      return matchesQuery(event);
+    });
 
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
@@ -204,6 +285,27 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
               You are uploading a multi-agent JSON file (contains agent transfers) into a
               single-agent environment. Please verify your environment settings.
             </p>
+          </div>
+        </div>
+      )}
+
+      {data.agentType === 'prod multi agent' && flowSegments.length > 1 && (
+        <div className="flow-map glass">
+          <span className="flow-map-label">Session Flow</span>
+          <div className="flow-track">
+            {flowSegments.map((segment, i) => (
+              <Fragment key={i}>
+                {i > 0 && <ArrowRight className="flow-arrow" />}
+                <button
+                  className="flow-segment"
+                  style={{ '--agent-h': agentHue(segment.agent.toLowerCase()), flexGrow: segment.count } as CSSProperties}
+                  onClick={() => jumpToEvent(segment.startIndex)}
+                  title={`${segment.agent} — ${segment.count} event${segment.count > 1 ? 's' : ''} (click to jump)`}
+                >
+                  {segment.agent} <span className="flow-count">({segment.count})</span>
+                </button>
+              </Fragment>
+            ))}
           </div>
         </div>
       )}
@@ -385,11 +487,38 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           />
           <span className="filter-count">{visibleEvents.length}/{data.events.length}</span>
         </div>
+        <div className="filter-expand-btns">
+          <button
+            className="btn-secondary"
+            title="Expand all details"
+            onClick={() => setExpandSignal(s => ({ version: s.version + 1, open: true }))}
+          >
+            <ChevronsUpDown className="btn-icon-sm" />
+          </button>
+          <button
+            className="btn-secondary"
+            title="Collapse all details"
+            onClick={() => setExpandSignal(s => ({ version: s.version + 1, open: false }))}
+          >
+            <ChevronsDownUp className="btn-icon-sm" />
+          </button>
+        </div>
       </div>
 
       <div className="timeline-list">
-        {visibleEvents.map((event, idx) => (
-          <TimelineItem key={event.id || idx} event={event} index={idx} />
+        {visibleEvents.map(({ event, globalIndex }, idx) => (
+          <TimelineItem
+            key={event.id || globalIndex}
+            event={event}
+            index={idx}
+            globalIndex={globalIndex}
+            expandSignal={expandSignal}
+            offsetLabel={
+              sessionStartMs !== null && event.timestamp
+                ? formatOffset(new Date(event.timestamp).getTime() - sessionStartMs)
+                : undefined
+            }
+          />
         ))}
         {data.events.length === 0 && (
           <div className="timeline-empty glass">
@@ -413,11 +542,26 @@ const EVENT_BADGES: Record<string, { label: string; variant: string }> = {
   tool_response: { label: 'RESPONSE', variant: 'success' },
 };
 
-function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
+interface TimelineItemProps {
+  event: ParsedEvent;
+  index: number;
+  globalIndex: number;
+  expandSignal: { version: number; open: boolean };
+  offsetLabel?: string;
+}
+
+function TimelineItem({ event, index, globalIndex, expandSignal, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
 
   const isMessage = event.type === 'message';
   const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
+
+  useEffect(() => {
+    if (expandSignal.version > 0 && hasDetails) {
+      setExpanded(expandSignal.open);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandSignal]);
 
   const eventBadge = EVENT_BADGES[event.type] || { label: 'UNKNOWN', variant: 'diag' };
   const role = (event.messageRole || 'system').toLowerCase();
@@ -445,6 +589,7 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
 
   return (
     <div
+      id={`event-row-${globalIndex}`}
       className={`timeline-row type-${event.type} animate-slide-up`}
       style={{ animationDelay: `${Math.min(index * 40, 800)}ms` }}
     >
@@ -475,6 +620,7 @@ function TimelineItem({ event, index }: { event: ParsedEvent; index: number }) {
             )}
           </div>
         )}
+        {offsetLabel && <span className="event-offset">{offsetLabel}</span>}
       </div>
 
       {expanded && hasDetails && (
