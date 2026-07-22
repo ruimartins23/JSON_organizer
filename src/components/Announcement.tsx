@@ -34,8 +34,8 @@ export function Announcement() {
         <p>
           Hey guys! You can now mark each function and transfer as{' '}
           <strong className="announcement-ok">correct</strong> or{' '}
-          <strong className="announcement-bad">incorrect</strong> right in the timeline —
-          just hit the ✓ or ✗ next to the call. The Function &amp; Transfer Summary updates
+          <strong className="announcement-bad">incorrect</strong> right in the timeline.
+          Just hit the ✓ or ✗ next to the call. The Function &amp; Transfer Summary updates
           itself so you can copy it straight out. Much love, Rui 💙
         </p>
         <div className="announcement-actions">

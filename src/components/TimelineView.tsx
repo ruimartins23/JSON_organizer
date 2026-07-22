@@ -186,7 +186,8 @@ function buildOutputs(data: OrganizedTimeline) {
       appendMessage(event);
     } else if (event.type === 'transfer' && isMultiAgent) {
       const from = event.raw?.agent || 'Unknown Agent';
-      ensureBlank();
+      // Keep back-to-back transfers grouped: only separate from a preceding non-transfer line.
+      if (summaryLines[summaryLines.length - 1]?.kind !== 'transfer') ensureBlank();
       summaryLines.push({ kind: 'transfer', key: reviewKeyFor(idx), text: `transfer_to_agent (${from} to ${getTransferTarget(event)})` });
       currentAgent = ''; // Force the next function to print its agent header
     } else if (event.type === 'function' || event.type === 'endsession') {
