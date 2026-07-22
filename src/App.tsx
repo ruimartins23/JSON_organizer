@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dropzone } from './components/Dropzone';
 import { TimelineView } from './components/TimelineView';
+import { Announcement } from './components/Announcement';
 import { parseAITrainingJSON } from './utils/parser';
 import type { OrganizedTimeline, EnvironmentMode, ParserConfig } from './utils/parser';
 import { BrainCircuit } from 'lucide-react';
@@ -29,6 +30,7 @@ function App() {
       </header>
 
       <main className="main-content">
+        <Announcement />
         {!timelineData ? (
           <Dropzone onFileParsed={handleFileParsed} />
         ) : (

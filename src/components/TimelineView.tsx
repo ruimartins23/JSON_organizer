@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import {
   Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces,
-  ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp,
+  ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp, Check, X,
 } from 'lucide-react';
 
 interface TimelineViewProps {
@@ -118,8 +118,40 @@ function withSectionBreak(text: string): string {
   return text + (text.endsWith('\n') ? '\n' : '\n\n');
 }
 
+export type ReviewStatus = 'correct' | 'incorrect';
+export type ReviewKind = 'function' | 'transfer';
+
+type SummaryLine =
+  | { kind: 'blank' }
+  | { kind: 'text'; text: string }
+  | { kind: 'function'; key: string; num: number; name: string }
+  | { kind: 'transfer'; key: string; text: string };
+
+// Reviewable events are keyed by their index in data.events so the timeline rows
+// and the summary lines that describe the same event share one status.
+const reviewKeyFor = (index: number) => `ev-${index}`;
+
+function statusSuffix(status: ReviewStatus | undefined, kind: ReviewKind): string {
+  if (status === 'correct') return kind === 'transfer' ? '(correct)' : '(correct parameters)';
+  if (status === 'incorrect') return '(incorrect)';
+  return ''; // unreviewed: no suffix, just the name
+}
+
+// Flatten the structured summary into copyable text, applying review statuses.
+function summaryLinesToText(lines: SummaryLine[], statuses: Record<string, ReviewStatus>): string {
+  return lines
+    .map(line => {
+      if (line.kind === 'blank') return '';
+      if (line.kind === 'text') return line.text;
+      if (line.kind === 'transfer') return `${line.text} ${statusSuffix(statuses[line.key], 'transfer')}`.trim();
+      return `${line.num}. ${line.name} ${statusSuffix(statuses[line.key], 'function')}`.trim();
+    })
+    .join('\n')
+    .trim();
+}
+
 function buildOutputs(data: OrganizedTimeline) {
-  let summary = '';
+  const summaryLines: SummaryLine[] = [];
   let displayTranscript = '';
   let downloadTranscript = '';
   let counter = 1;
@@ -127,6 +159,12 @@ function buildOutputs(data: OrganizedTimeline) {
 
   const isMultiAgent = data.agentType === 'prod multi agent';
   if (isMultiAgent) currentAgent = '';
+
+  // Add a blank separator line unless one is already there or the list is empty.
+  const ensureBlank = () => {
+    const last = summaryLines[summaryLines.length - 1];
+    if (last && last.kind !== 'blank') summaryLines.push({ kind: 'blank' });
+  };
 
   const appendMessage = (event: ParsedEvent) => {
     displayTranscript = withSectionBreak(displayTranscript);
@@ -143,30 +181,36 @@ function buildOutputs(data: OrganizedTimeline) {
     downloadTranscript += `${downloadRole}: ${event.messageContent}\n`;
   };
 
-  data.events.forEach(event => {
+  data.events.forEach((event, idx) => {
     if (event.type === 'message') {
       appendMessage(event);
     } else if (event.type === 'transfer' && isMultiAgent) {
       const from = event.raw?.agent || 'Unknown Agent';
-      summary = withSectionBreak(summary);
-      summary += `transfer_to_agent (${from} to ${getTransferTarget(event)})\n`;
+      ensureBlank();
+      summaryLines.push({ kind: 'transfer', key: reviewKeyFor(idx), text: `transfer_to_agent (${from} to ${getTransferTarget(event)})` });
       currentAgent = ''; // Force the next function to print its agent header
     } else if (event.type === 'function' || event.type === 'endsession') {
       if (isMultiAgent) {
         const agent = event.raw?.agent || 'Unknown Agent';
         if (agent !== currentAgent) {
-          summary = withSectionBreak(summary);
-          summary += `${agent}:\n\n`;
+          ensureBlank();
+          summaryLines.push({ kind: 'text', text: `${agent}:` });
+          summaryLines.push({ kind: 'blank' });
           currentAgent = agent;
         }
       }
-      summary += `${counter}. ${event.toolName || 'Unknown Function'} executed\n`;
+      summaryLines.push({
+        kind: 'function',
+        key: reviewKeyFor(idx),
+        num: counter,
+        name: event.toolName || 'Unknown Function',
+      });
       counter++;
     }
   });
 
   return {
-    summaryText: summary.trim(),
+    summaryLines,
     displayTranscriptText: displayTranscript.trim(),
     downloadTranscriptText: downloadTranscript.trim(),
   };
@@ -199,6 +243,19 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [showTransfers, setShowTransfers] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandSignal, setExpandSignal] = useState({ version: 0, open: false });
+  const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
+
+  // A fresh upload clears any prior review marks.
+  useEffect(() => setReviewStatus({}), [data]);
+
+  const toggleReview = (key: string, status: ReviewStatus) => {
+    setReviewStatus(prev => {
+      const next = { ...prev };
+      if (next[key] === status) delete next[key]; // clicking the active state again clears it
+      else next[key] = status;
+      return next;
+    });
+  };
 
   const taskStr = taskNumber.trim() || '(task number)';
   const summaryFileName = `Telco-AM-${taskStr}-${clarity}-JSON-${selectedAgent}.txt`;
@@ -214,10 +271,21 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
     return counts;
   }, [data.events]);
 
-  const { summaryText, displayTranscriptText, downloadTranscriptText } = useMemo(
+  const { summaryLines, displayTranscriptText, downloadTranscriptText } = useMemo(
     () => buildOutputs(data),
     [data]
   );
+
+  const summaryText = useMemo(
+    () => summaryLinesToText(summaryLines, reviewStatus),
+    [summaryLines, reviewStatus]
+  );
+
+  const reviewableCount = useMemo(
+    () => summaryLines.filter(l => l.kind === 'function' || l.kind === 'transfer').length,
+    [summaryLines]
+  );
+  const reviewedCount = Object.keys(reviewStatus).length;
 
   const flowSegments = useMemo(() => buildFlowSegments(data.events), [data.events]);
 
@@ -445,7 +513,36 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
               {copySummaryLabel}
             </button>
           </div>
-          <textarea readOnly value={summaryText} className="output-textarea" />
+          {reviewableCount > 0 && (
+            <div className="review-hint">
+              <span>Mark each call <Check className="review-hint-icon ok" /> or <X className="review-hint-icon bad" /> in the timeline below.</span>
+              <span className="review-progress">{reviewedCount}/{reviewableCount} reviewed</span>
+            </div>
+          )}
+          <div className="summary-review">
+            {summaryLines.map((line, i) => {
+              if (line.kind === 'blank') return <div key={i} className="review-blank" />;
+              if (line.kind === 'text') {
+                return <div key={i} className="review-text agent-header">{line.text}</div>;
+              }
+              if (line.kind === 'transfer') {
+                const status = reviewStatus[line.key];
+                return (
+                  <div key={i} className={`review-text transfer ${status || ''}`}>
+                    {line.text}{status && <> <span className="review-fn-suffix">{statusSuffix(status, 'transfer')}</span></>}
+                  </div>
+                );
+              }
+              const status = reviewStatus[line.key];
+              return (
+                <div key={i} className={`review-fn ${status || ''}`}>
+                  <span className="review-fn-num">{line.num}.</span>
+                  <span className="review-fn-name">{line.name}</span>
+                  {status && <span className="review-fn-suffix">{statusSuffix(status, 'function')}</span>}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="summary-box glass">
@@ -513,6 +610,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             index={idx}
             globalIndex={globalIndex}
             expandSignal={expandSignal}
+            reviewStatus={reviewStatus[reviewKeyFor(globalIndex)]}
+            onReview={toggleReview}
             offsetLabel={
               sessionStartMs !== null && event.timestamp
                 ? formatOffset(new Date(event.timestamp).getTime() - sessionStartMs)
@@ -547,14 +646,21 @@ interface TimelineItemProps {
   index: number;
   globalIndex: number;
   expandSignal: { version: number; open: boolean };
+  reviewStatus?: ReviewStatus;
+  onReview: (key: string, status: ReviewStatus) => void;
   offsetLabel?: string;
 }
 
-function TimelineItem({ event, index, globalIndex, expandSignal, offsetLabel }: TimelineItemProps) {
+function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
 
   const isMessage = event.type === 'message';
   const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
+
+  // Functions, end-session and transfers can be marked correct/incorrect inline.
+  const isReviewable = event.type === 'function' || event.type === 'endsession' || event.type === 'transfer';
+  const reviewKind: ReviewKind = event.type === 'transfer' ? 'transfer' : 'function';
+  const reviewKey = reviewKeyFor(globalIndex);
 
   useEffect(() => {
     if (expandSignal.version > 0 && hasDetails) {
@@ -590,7 +696,7 @@ function TimelineItem({ event, index, globalIndex, expandSignal, offsetLabel }: 
   return (
     <div
       id={`event-row-${globalIndex}`}
-      className={`timeline-row type-${event.type} animate-slide-up`}
+      className={`timeline-row type-${event.type} animate-slide-up ${reviewStatus ? `review-${reviewStatus}` : ''}`}
       style={{ animationDelay: `${Math.min(index * 40, 800)}ms` }}
     >
       <div className="timeline-row-main">
@@ -618,6 +724,29 @@ function TimelineItem({ event, index, globalIndex, expandSignal, offsetLabel }: 
             {event.duplicateCount && event.duplicateCount > 1 && (
               <span className="tool-line-count">({event.duplicateCount}x)</span>
             )}
+            {reviewStatus && (
+              <span className={`tool-review-suffix ${reviewStatus}`}>
+                {statusSuffix(reviewStatus, reviewKind)}
+              </span>
+            )}
+          </div>
+        )}
+        {isReviewable && (
+          <div className="row-review">
+            <button
+              className={`review-btn ok ${reviewStatus === 'correct' ? 'active' : ''}`}
+              title={reviewKind === 'transfer' ? 'Correct' : 'Correct parameters'}
+              onClick={(e) => { e.stopPropagation(); onReview(reviewKey, 'correct'); }}
+            >
+              <Check className="btn-icon-sm" />
+            </button>
+            <button
+              className={`review-btn bad ${reviewStatus === 'incorrect' ? 'active' : ''}`}
+              title="Incorrect"
+              onClick={(e) => { e.stopPropagation(); onReview(reviewKey, 'incorrect'); }}
+            >
+              <X className="btn-icon-sm" />
+            </button>
           </div>
         )}
         {offsetLabel && <span className="event-offset">{offsetLabel}</span>}
