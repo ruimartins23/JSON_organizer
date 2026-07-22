@@ -25,7 +25,23 @@ export interface OrganizedTimeline {
   duration?: string;
   rawJsonText?: string;
   hasEnvironmentMismatch?: boolean;
+  referenceData?: Record<string, unknown>;
   events: ParsedEvent[];
+}
+
+// Values in defaultVariables are often stringified JSON; parse them when possible.
+function maybeParseJSON(value: unknown): unknown {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return value;
+      }
+    }
+  }
+  return value;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -65,6 +81,9 @@ export function parseAITrainingJSON(
   // We will collect rootSpans during traversal for the highest precision duration
   const rootSpans: { start: number; end: number }[] = [];
 
+  // The context/tools the model was given (accounts, plans, outages, etc.)
+  const referenceData: Record<string, unknown> = {};
+
   let hasEnvironmentMismatch = false;
 
   // Recursively search the JSON for useful objects
@@ -84,6 +103,13 @@ export function parseAITrainingJSON(
         start: new Date(obj.rootSpan.startTime).getTime(),
         end: new Date(obj.rootSpan.endTime).getTime()
       });
+    }
+
+    // Collect the model's provided context blocks (first occurrence of each key wins)
+    if (obj.defaultVariables && typeof obj.defaultVariables === 'object' && !Array.isArray(obj.defaultVariables)) {
+      for (const [key, value] of Object.entries(obj.defaultVariables)) {
+        if (!(key in referenceData)) referenceData[key] = maybeParseJSON(value);
+      }
     }
 
     const currentAgent = obj.agent || obj.role || obj.agentName || parentAgent;
@@ -411,6 +437,7 @@ export function parseAITrainingJSON(
     sessionId,
     duration: durationStr,
     hasEnvironmentMismatch,
+    referenceData: Object.keys(referenceData).length > 0 ? referenceData : undefined,
     rawJsonText: JSON.stringify(data, null, 2),
     events: finalEvents
   };

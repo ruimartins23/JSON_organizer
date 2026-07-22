@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
+import { ReferenceDataPanel } from './ReferenceDataPanel';
+import { findFixtureMatch } from '../utils/referenceData';
+import type { FixtureFocus } from '../utils/referenceData';
 import {
   Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces,
   ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp, Check, X, StickyNote,
@@ -44,6 +47,20 @@ function agentHue(name: string): number {
 function getTransferTarget(event: ParsedEvent): string {
   const args = event.arguments;
   return args?.displayName || args?.targetAgent || args?.agent_name || args?.target || args?.destination || args?.agent || 'Unknown Agent';
+}
+
+// Gather primitive leaf values from a tool call's arguments (recursively) for fixture lookup.
+function collectLeafValues(value: unknown, acc = new Set<string>()): Set<string> {
+  if (value === null || value === undefined) return acc;
+  if (Array.isArray(value)) {
+    value.forEach(v => collectLeafValues(v, acc));
+  } else if (typeof value === 'object') {
+    Object.values(value).forEach(v => collectLeafValues(v, acc));
+  } else {
+    const s = String(value).trim();
+    if (s.length >= 3 && !/^(true|false)$/i.test(s)) acc.add(s);
+  }
+  return acc;
 }
 
 interface FlowSegment {
@@ -246,12 +263,18 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [expandSignal, setExpandSignal] = useState({ version: 0, open: false });
   const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [fixtureFocus, setFixtureFocus] = useState<FixtureFocus | undefined>();
 
   // A fresh upload clears any prior review marks and notes.
   useEffect(() => {
     setReviewStatus({});
     setNotes({});
+    setFixtureFocus(undefined);
   }, [data]);
+
+  const focusFixture = (match: { block: string; tableIndex: number; rowIndex: number }) => {
+    setFixtureFocus({ ...match, nonce: Date.now() });
+  };
 
   const toggleReview = (key: string, status: ReviewStatus) => {
     setReviewStatus(prev => {
@@ -571,6 +594,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         </div>
       </div>
 
+      {data.referenceData && <ReferenceDataPanel data={data.referenceData} focus={fixtureFocus} />}
+
       <div className="filter-bar glass">
         <span className="filter-bar-label">Filters:</span>
         <label className="checkbox-label">
@@ -628,6 +653,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             onReview={toggleReview}
             note={notes[eventKeyFor(globalIndex)]}
             onNote={setNote}
+            referenceData={data.referenceData}
+            onFixtureFocus={focusFixture}
             offsetLabel={
               sessionStartMs !== null && event.timestamp
                 ? formatOffset(new Date(event.timestamp).getTime() - sessionStartMs)
@@ -666,16 +693,29 @@ interface TimelineItemProps {
   onReview: (key: string, status: ReviewStatus) => void;
   note?: string;
   onNote: (key: string, value: string) => void;
+  referenceData?: Record<string, unknown>;
+  onFixtureFocus: (match: { block: string; tableIndex: number; rowIndex: number }) => void;
   offsetLabel?: string;
 }
 
-function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, offsetLabel }: TimelineItemProps) {
+function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, referenceData, onFixtureFocus, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
   // Open by default if this row already has a note; can be collapsed without losing it.
   const [noteOpen, setNoteOpen] = useState(!!note);
 
   const isMessage = event.type === 'message';
   const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
+
+  // Argument values that map to a fixture record, for one-click lookup.
+  const fixtureLookups = useMemo(() => {
+    if (!referenceData || !event.arguments) return [];
+    const out: { value: string; block: string; tableIndex: number; rowIndex: number; blockLabel: string }[] = [];
+    for (const value of collectLeafValues(event.arguments)) {
+      const match = findFixtureMatch(referenceData, value);
+      if (match) out.push({ value, ...match });
+    }
+    return out.slice(0, 8);
+  }, [referenceData, event.arguments]);
 
   // Functions, end-session and transfers can be marked correct/incorrect inline.
   const isReviewable = event.type === 'function' || event.type === 'endsession' || event.type === 'transfer';
@@ -800,6 +840,22 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
             <div className="data-block args">
               <div className="data-label">Arguments</div>
               <pre>{typeof event.arguments === 'string' ? event.arguments : JSON.stringify(event.arguments, null, 2)}</pre>
+            </div>
+          )}
+          {fixtureLookups.length > 0 && (
+            <div className="fixture-lookups">
+              <span className="fixture-lookups-label">Look up in fixture:</span>
+              {fixtureLookups.map((lookup, i) => (
+                <button
+                  key={i}
+                  className="fixture-chip"
+                  title={`Show ${lookup.value} in ${lookup.blockLabel}`}
+                  onClick={(e) => { e.stopPropagation(); onFixtureFocus(lookup); }}
+                >
+                  {lookup.value}
+                  <span className="fixture-chip-block">{lookup.blockLabel}</span>
+                </button>
+              ))}
             </div>
           )}
           {event.response && (
