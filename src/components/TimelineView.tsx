@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import {
   Activity, Copy, Download, AlertTriangle, Search, MessageSquare, Braces,
-  ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp, Check, X,
+  ArrowLeftRight, ArrowRight, ChevronsUpDown, ChevronsDownUp, Check, X, StickyNote,
 } from 'lucide-react';
 
 interface TimelineViewProps {
@@ -127,9 +127,9 @@ type SummaryLine =
   | { kind: 'function'; key: string; num: number; name: string }
   | { kind: 'transfer'; key: string; text: string };
 
-// Reviewable events are keyed by their index in data.events so the timeline rows
-// and the summary lines that describe the same event share one status.
-const reviewKeyFor = (index: number) => `ev-${index}`;
+// Every event is keyed by its index in data.events, so the timeline rows, the
+// summary lines, review status, and per-turn notes all reference the same event.
+const eventKeyFor = (index: number) => `ev-${index}`;
 
 function statusSuffix(status: ReviewStatus | undefined, kind: ReviewKind): string {
   if (status === 'correct') return kind === 'transfer' ? '(correct)' : '(correct parameters)';
@@ -188,7 +188,7 @@ function buildOutputs(data: OrganizedTimeline) {
       const from = event.raw?.agent || 'Unknown Agent';
       // Keep back-to-back transfers grouped: only separate from a preceding non-transfer line.
       if (summaryLines[summaryLines.length - 1]?.kind !== 'transfer') ensureBlank();
-      summaryLines.push({ kind: 'transfer', key: reviewKeyFor(idx), text: `transfer_to_agent (${from} to ${getTransferTarget(event)})` });
+      summaryLines.push({ kind: 'transfer', key: eventKeyFor(idx), text: `transfer_to_agent (${from} to ${getTransferTarget(event)})` });
       currentAgent = ''; // Force the next function to print its agent header
     } else if (event.type === 'function' || event.type === 'endsession') {
       if (isMultiAgent) {
@@ -202,7 +202,7 @@ function buildOutputs(data: OrganizedTimeline) {
       }
       summaryLines.push({
         kind: 'function',
-        key: reviewKeyFor(idx),
+        key: eventKeyFor(idx),
         num: counter,
         name: event.toolName || 'Unknown Function',
       });
@@ -245,15 +245,28 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandSignal, setExpandSignal] = useState({ version: 0, open: false });
   const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
-  // A fresh upload clears any prior review marks.
-  useEffect(() => setReviewStatus({}), [data]);
+  // A fresh upload clears any prior review marks and notes.
+  useEffect(() => {
+    setReviewStatus({});
+    setNotes({});
+  }, [data]);
 
   const toggleReview = (key: string, status: ReviewStatus) => {
     setReviewStatus(prev => {
       const next = { ...prev };
       if (next[key] === status) delete next[key]; // clicking the active state again clears it
       else next[key] = status;
+      return next;
+    });
+  };
+
+  const setNote = (key: string, value: string) => {
+    setNotes(prev => {
+      const next = { ...prev };
+      if (value.trim()) next[key] = value;
+      else delete next[key];
       return next;
     });
   };
@@ -611,8 +624,10 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
             index={idx}
             globalIndex={globalIndex}
             expandSignal={expandSignal}
-            reviewStatus={reviewStatus[reviewKeyFor(globalIndex)]}
+            reviewStatus={reviewStatus[eventKeyFor(globalIndex)]}
             onReview={toggleReview}
+            note={notes[eventKeyFor(globalIndex)]}
+            onNote={setNote}
             offsetLabel={
               sessionStartMs !== null && event.timestamp
                 ? formatOffset(new Date(event.timestamp).getTime() - sessionStartMs)
@@ -649,11 +664,15 @@ interface TimelineItemProps {
   expandSignal: { version: number; open: boolean };
   reviewStatus?: ReviewStatus;
   onReview: (key: string, status: ReviewStatus) => void;
+  note?: string;
+  onNote: (key: string, value: string) => void;
   offsetLabel?: string;
 }
 
-function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, offsetLabel }: TimelineItemProps) {
+function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
+  // Open by default if this row already has a note; can be collapsed without losing it.
+  const [noteOpen, setNoteOpen] = useState(!!note);
 
   const isMessage = event.type === 'message';
   const hasDetails = !isMessage && !!(event.arguments || event.response || event.raw);
@@ -661,7 +680,8 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
   // Functions, end-session and transfers can be marked correct/incorrect inline.
   const isReviewable = event.type === 'function' || event.type === 'endsession' || event.type === 'transfer';
   const reviewKind: ReviewKind = event.type === 'transfer' ? 'transfer' : 'function';
-  const reviewKey = reviewKeyFor(globalIndex);
+  const eventKey = eventKeyFor(globalIndex);
+  const hasNote = !!note;
 
   useEffect(() => {
     if (expandSignal.version > 0 && hasDetails) {
@@ -737,21 +757,42 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
             <button
               className={`review-btn ok ${reviewStatus === 'correct' ? 'active' : ''}`}
               title={reviewKind === 'transfer' ? 'Correct' : 'Correct parameters'}
-              onClick={(e) => { e.stopPropagation(); onReview(reviewKey, 'correct'); }}
+              onClick={(e) => { e.stopPropagation(); onReview(eventKey, 'correct'); }}
             >
               <Check className="btn-icon-sm" />
             </button>
             <button
               className={`review-btn bad ${reviewStatus === 'incorrect' ? 'active' : ''}`}
               title="Incorrect"
-              onClick={(e) => { e.stopPropagation(); onReview(reviewKey, 'incorrect'); }}
+              onClick={(e) => { e.stopPropagation(); onReview(eventKey, 'incorrect'); }}
             >
               <X className="btn-icon-sm" />
             </button>
           </div>
         )}
+        <button
+          className={`note-btn ${hasNote ? 'has-note' : ''}`}
+          title={noteOpen ? 'Hide note' : hasNote ? 'Show note' : 'Add note'}
+          onClick={(e) => { e.stopPropagation(); setNoteOpen(o => !o); }}
+        >
+          <StickyNote className="btn-icon-sm" />
+        </button>
         {offsetLabel && <span className="event-offset">{offsetLabel}</span>}
       </div>
+
+      {noteOpen && (
+        <div className="note-editor animate-fade-in">
+          <StickyNote className="note-editor-icon" />
+          <textarea
+            className="note-textarea"
+            placeholder="Add a note about this turn..."
+            value={note || ''}
+            autoFocus={!hasNote}
+            onChange={(e) => onNote(eventKey, e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {expanded && hasDetails && (
         <div className="event-details animate-fade-in">

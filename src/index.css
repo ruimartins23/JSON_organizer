@@ -1238,6 +1238,76 @@ input, textarea, select {
 .tool-review-suffix.correct { color: var(--success); }
 .tool-review-suffix.incorrect { color: var(--destructive); }
 
+/* Discreet per-turn note button: hidden until row hover, lit when a note exists */
+.note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.timeline-row:hover .note-btn {
+  opacity: 0.6;
+}
+
+.note-btn:hover {
+  opacity: 1;
+  color: var(--primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.note-btn.has-note {
+  opacity: 1;
+  color: var(--warning);
+}
+
+.note-editor {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.6rem 5.5rem;
+}
+
+.note-editor-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--warning);
+  flex-shrink: 0;
+  margin-top: 0.55rem;
+}
+
+.note-textarea {
+  flex: 1;
+  min-height: 2.4rem;
+  resize: vertical;
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  color: var(--foreground);
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.note-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.note-textarea:focus {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+
 /* ---------- Filters / timeline list ---------- */
 
 .filter-bar {
