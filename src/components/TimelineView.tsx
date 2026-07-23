@@ -396,73 +396,55 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
         </div>
       )}
 
-      {data.agentType === 'prod multi agent' && flowSegments.length > 1 && (
-        <div className="flow-map glass">
-          <span className="flow-map-label">Session Flow</span>
-          <div className="flow-track">
-            {flowSegments.map((segment, i) => (
-              <Fragment key={i}>
-                {i > 0 && <ArrowRight className="flow-arrow" />}
-                <button
-                  className="flow-segment"
-                  style={{ '--agent-h': agentHue(segment.agent.toLowerCase()), flexGrow: segment.count } as CSSProperties}
-                  onClick={() => jumpToEvent(segment.startIndex)}
-                  title={`${segment.agent} — ${segment.count} event${segment.count > 1 ? 's' : ''} (click to jump)`}
-                >
-                  {segment.agent} <span className="flow-count">({segment.count})</span>
+      <div className="session-facts glass">
+        {(data.sessionId || data.duration) && (
+          <div className="facts-primary">
+            {data.sessionId && (
+              <div className="fact meta">
+                <span className="fact-label">Session ID</span>
+                <button className="fact-mono copyable" onClick={() => copySession(data.sessionId)} title="Click to copy">
+                  {data.sessionId}
                 </button>
-              </Fragment>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="stats-row">
-        <div className="stat-card glass">
-          <MessageSquare className="stat-icon" />
-          <div className="stat-value">{stats.messages}</div>
-          <div className="stat-label">Transcript Turns</div>
-        </div>
-        <div className="stat-card glass">
-          <Braces className="stat-icon" />
-          <div className="stat-value">{stats.functions}</div>
-          <div className="stat-label">Functions Executed</div>
-        </div>
-        {data.agentType === 'prod multi agent' && (
-          <div className="stat-card glass">
-            <ArrowLeftRight className="stat-icon" />
-            <div className="stat-value">{stats.transfers}</div>
-            <div className="stat-label">Agent Transfers</div>
-          </div>
-        )}
-      </div>
-
-      {(data.sessionId || data.duration) && (
-        <div className="metadata-section glass">
-          {data.sessionId && (
-            <div className="meta-item">
-              <span className="meta-label">SESSION ID</span>
-              <div className="meta-value-row">
-                <span className="meta-value">{data.sessionId}</span>
-                <button onClick={() => copySession(data.sessionId)} className="btn-secondary">
+                <button onClick={() => copySession(data.sessionId)} className="btn-secondary fact-copy">
                   <Copy className="btn-icon-sm" /> {copySessionLabel}
                 </button>
               </div>
-            </div>
-          )}
-          {data.duration && (
-            <div className="meta-item">
-              <span className="meta-label">DURATION (MM:SS)</span>
-              <div className="meta-value-row">
-                <span className="meta-value">{data.duration}</span>
-                <button onClick={() => copyDuration(data.duration)} className="btn-secondary">
+            )}
+            {data.duration && (
+              <div className="fact meta">
+                <span className="fact-label">Duration</span>
+                <button className="fact-mono copyable" onClick={() => copyDuration(data.duration)} title="Click to copy">
+                  {data.duration}
+                </button>
+                <button onClick={() => copyDuration(data.duration)} className="btn-secondary fact-copy">
                   <Copy className="btn-icon-sm" /> {copyDurationLabel}
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
+
+        <div className="facts-secondary">
+        <div className="fact">
+          <MessageSquare className="fact-icon" />
+          <span className="fact-value">{stats.messages}</span>
+          <span className="fact-label">Transcript Turns</span>
         </div>
-      )}
+        <div className="fact">
+          <Braces className="fact-icon" />
+          <span className="fact-value">{stats.functions}</span>
+          <span className="fact-label">Functions</span>
+        </div>
+        {data.agentType === 'prod multi agent' && (
+          <div className="fact">
+            <ArrowLeftRight className="fact-icon" />
+            <span className="fact-value">{stats.transfers}</span>
+            <span className="fact-label">Transfers</span>
+          </div>
+        )}
+
+        </div>
+      </div>
 
       <div className="export-section glass">
         <div className="export-header">
@@ -595,6 +577,26 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
           <textarea readOnly value={displayTranscriptText} className="output-textarea" />
         </div>
       </div>
+      {data.agentType === 'prod multi agent' && flowSegments.length > 1 && (
+        <div className="flow-map glass">
+          <span className="flow-map-label">Session Flow</span>
+          <div className="flow-track">
+            {flowSegments.map((segment, i) => (
+              <Fragment key={i}>
+                {i > 0 && <ArrowRight className="flow-arrow" />}
+                <button
+                  className="flow-segment"
+                  style={{ '--agent-h': agentHue(segment.agent.toLowerCase()), flexGrow: segment.count } as CSSProperties}
+                  onClick={() => jumpToEvent(segment.startIndex)}
+                  title={`${segment.agent} — ${segment.count} event${segment.count > 1 ? 's' : ''} (click to jump)`}
+                >
+                  {segment.agent} <span className="flow-count">({segment.count})</span>
+                </button>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      )}
 
       <ScenarioCheck agentType={data.agentType} events={data.events} scenario={scenario} />
 
