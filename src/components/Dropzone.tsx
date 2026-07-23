@@ -1,9 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileJson, ClipboardPaste, Settings2 } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
+import { SCENARIOS } from '../data/scenarios';
+
+export interface ScenarioSelection {
+  num: number;
+  gender: 'male' | 'female';
+}
 
 interface DropzoneProps {
-  onFileParsed: (data: unknown, mode: EnvironmentMode, config: ParserConfig) => void;
+  onFileParsed: (data: unknown, mode: EnvironmentMode, config: ParserConfig, scenario: ScenarioSelection) => void;
 }
 
 const MODES: { value: EnvironmentMode; label: string }[] = [
@@ -40,8 +46,25 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [functionKeyword, setFunctionKeyword] = useState('PythonFunctionTool');
   const [transferKeyword, setTransferKeyword] = useState('agentTransfer');
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
+  const [scenarioNum, setScenarioNum] = useState(1);
+  const [scenarioGender, setScenarioGender] = useState<'male' | 'female'>('male');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Scenario numbers depend on the environment (single vs multi) and the gender.
+  const scenarioNumbers = useMemo(() => {
+    const kind = mode === 'prod multi agent' ? 'multi' : 'single';
+    return [...new Set(
+      SCENARIOS.filter(s => s.agentType === kind && s.gender === scenarioGender).map(s => s.num)
+    )].sort((a, b) => a - b);
+  }, [mode, scenarioGender]);
+
+  // Keep the selection valid when the environment or gender changes.
+  const activeScenario = scenarioNumbers.includes(scenarioNum) ? scenarioNum : (scenarioNumbers[0] ?? 1);
+  const scenarioTitle = (n: number) => {
+    const kind = mode === 'prod multi agent' ? 'multi' : 'single';
+    return SCENARIOS.find(s => s.agentType === kind && s.gender === scenarioGender && s.num === n)?.title || '';
+  };
 
   const handleModeChange = (newMode: EnvironmentMode) => {
     setMode(newMode);
@@ -51,7 +74,10 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const processText = (text: string) => {
     try {
       const json = JSON.parse(text);
-      onFileParsed(json, mode, { functionKeyword, transferKeyword, endSessionKeyword });
+      onFileParsed(json, mode, { functionKeyword, transferKeyword, endSessionKeyword }, {
+        num: activeScenario,
+        gender: scenarioGender,
+      });
       setError(null);
     } catch (err: any) {
       console.error(err);
@@ -194,6 +220,47 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               />
             </div>
           )}
+        </div>
+
+        <div className="scenario-select-row">
+          <div className="mode-selector-header">
+            <ClipboardCheck className="btn-icon" style={{ color: 'var(--primary)' }} />
+            <h3 className="panel-title">
+              Scenario
+              <span className="beta-tag">beta</span>
+            </h3>
+          </div>
+          <p className="mode-selector-hint">
+            Pick the scenario you are rating so the Scenario Check can compare the expected calls.
+          </p>
+          <div className="config-grid">
+            <div className="config-field">
+              <label className="field-label">Scenario number</label>
+              <select
+                className="select-input"
+                value={activeScenario}
+                onChange={(e) => setScenarioNum(Number(e.target.value))}
+              >
+                {scenarioNumbers.map(n => (
+                  <option key={n} value={n}>{n}. {scenarioTitle(n)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="config-field">
+              <label className="field-label">Gender</label>
+              <div className="segmented-control">
+                {(['male', 'female'] as const).map(g => (
+                  <button
+                    key={g}
+                    className={`segment-btn ${scenarioGender === g ? 'active' : ''}`}
+                    onClick={() => setScenarioGender(g)}
+                  >
+                    {g === 'male' ? 'Male' : 'Female'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

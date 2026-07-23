@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Dropzone } from './components/Dropzone';
+import type { ScenarioSelection } from './components/Dropzone';
 import { TimelineView } from './components/TimelineView';
 import { Announcement } from './components/Announcement';
 import { parseAITrainingJSON } from './utils/parser';
@@ -8,8 +9,15 @@ import { BrainCircuit } from 'lucide-react';
 
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
+  const [scenario, setScenario] = useState<ScenarioSelection>({ num: 1, gender: 'male' });
 
-  const handleFileParsed = (data: unknown, mode: EnvironmentMode, config: ParserConfig) => {
+  const handleFileParsed = (
+    data: unknown,
+    mode: EnvironmentMode,
+    config: ParserConfig,
+    selectedScenario: ScenarioSelection,
+  ) => {
+    setScenario(selectedScenario);
     setTimelineData(parseAITrainingJSON(data, mode, config));
   };
 
@@ -34,7 +42,7 @@ function App() {
         {!timelineData ? (
           <Dropzone onFileParsed={handleFileParsed} />
         ) : (
-          <TimelineView data={timelineData} onReset={reset} />
+          <TimelineView data={timelineData} onReset={reset} scenario={scenario} />
         )}
       </main>
       

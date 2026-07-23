@@ -1636,6 +1636,12 @@ input, textarea, select {
   overflow: hidden;
 }
 
+.scenario-select-row {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-glass);
+}
+
 .beta-tag {
   margin-left: 0.5rem;
   padding: 0.05rem 0.4rem;

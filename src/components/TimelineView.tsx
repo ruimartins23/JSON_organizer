@@ -13,6 +13,7 @@ import {
 interface TimelineViewProps {
   data: OrganizedTimeline;
   onReset: () => void;
+  scenario?: { num: number; gender: 'male' | 'female' };
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -247,7 +248,7 @@ function downloadFile(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function TimelineView({ data, onReset }: TimelineViewProps) {
+export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
   const [copySummaryLabel, copySummary] = useCopyToClipboard('Copy Summary');
   const [copyTranscriptLabel, copyTranscript] = useCopyToClipboard('Copy Transcript');
   const [copySessionLabel, copySession] = useCopyToClipboard('Copy');
@@ -595,7 +596,7 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
         </div>
       </div>
 
-      <ScenarioCheck agentType={data.agentType} events={data.events} />
+      <ScenarioCheck agentType={data.agentType} events={data.events} scenario={scenario} />
 
       {data.referenceData && <ReferenceDataPanel data={data.referenceData} focus={fixtureFocus} />}
 

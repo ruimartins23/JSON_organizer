@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { ClipboardCheck, ChevronDown, Check, X, ArrowRight } from 'lucide-react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
@@ -7,6 +7,8 @@ import { SCENARIOS } from '../data/scenarios';
 interface ScenarioCheckProps {
   agentType: OrganizedTimeline['agentType'];
   events: ParsedEvent[];
+  /** Scenario chosen on the upload page; adjustable here if it was wrong. */
+  scenario?: { num: number; gender: 'male' | 'female' };
 }
 
 // Map guideline names and executed tool names to a shared "family" so naming
@@ -77,13 +79,20 @@ function AgentTag({ agent, target }: { agent?: string; target?: string }) {
   );
 }
 
-export function ScenarioCheck({ agentType, events }: ScenarioCheckProps) {
+export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProps) {
   const kind = agentType === 'prod multi agent' ? 'multi' : 'single';
   const pool = useMemo(() => SCENARIOS.filter(s => s.agentType === kind), [kind]);
 
   const [open, setOpen] = useState(false);
-  const [num, setNum] = useState(1);
-  const [gender, setGender] = useState<'male' | 'female'>('male');
+  const [num, setNum] = useState(scenario?.num ?? 1);
+  const [gender, setGender] = useState<'male' | 'female'>(scenario?.gender ?? 'male');
+
+  // A new upload carries a fresh scenario choice from the upload page.
+  useEffect(() => {
+    if (!scenario) return;
+    setNum(scenario.num);
+    setGender(scenario.gender);
+  }, [scenario]);
 
   // Available scenario numbers depend on the gender (some scenarios only exist for one).
   const numbers = useMemo(
