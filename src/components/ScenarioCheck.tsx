@@ -80,13 +80,20 @@ function AgentTag({ agent, target }: { agent?: string; target?: string }) {
 export function ScenarioCheck({ agentType, events }: ScenarioCheckProps) {
   const kind = agentType === 'prod multi agent' ? 'multi' : 'single';
   const pool = useMemo(() => SCENARIOS.filter(s => s.agentType === kind), [kind]);
-  const numbers = useMemo(() => [...new Set(pool.map(s => s.num))].sort((a, b) => a - b), [pool]);
 
   const [open, setOpen] = useState(false);
-  const [num, setNum] = useState(numbers[0] ?? 1);
+  const [num, setNum] = useState(1);
   const [gender, setGender] = useState<'male' | 'female'>('male');
 
-  const spec = pool.find(s => s.num === num && s.gender === gender);
+  // Available scenario numbers depend on the gender (some scenarios only exist for one).
+  const numbers = useMemo(
+    () => [...new Set(pool.filter(s => s.gender === gender).map(s => s.num))].sort((a, b) => a - b),
+    [pool, gender]
+  );
+  // If the current number isn't valid for this gender, fall back to the first available.
+  const activeNum = numbers.includes(num) ? num : (numbers[0] ?? num);
+
+  const spec = pool.find(s => s.num === activeNum && s.gender === gender);
 
   // Executed tool calls in order (functions, end-session, transfers), with the agent that ran them.
   const executed = useMemo(
@@ -146,9 +153,9 @@ export function ScenarioCheck({ agentType, events }: ScenarioCheckProps) {
           <div className="scenario-picker">
             <label className="scenario-field">
               <span className="field-label">Scenario</span>
-              <select className="select-input" value={num} onChange={e => setNum(Number(e.target.value))}>
+              <select className="select-input" value={activeNum} onChange={e => setNum(Number(e.target.value))}>
                 {numbers.map(n => {
-                  const t = pool.find(s => s.num === n)?.title || '';
+                  const t = pool.find(s => s.num === n && s.gender === gender)?.title || '';
                   return <option key={n} value={n}>{n}. {t}</option>;
                 })}
               </select>
