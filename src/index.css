@@ -1629,6 +1629,231 @@ input, textarea, select {
   color: var(--text-muted);
 }
 
+/* ---------- Scenario check ---------- */
+
+.scenario-panel {
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.beta-tag {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+}
+
+.beta-note {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--warning);
+  opacity: 0.85;
+}
+
+.scenario-picker {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.scenario-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scenario-field .select-input {
+  min-width: 260px;
+}
+
+.scenario-user {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.8rem;
+}
+
+.scenario-verdict {
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 1.1rem;
+  border: 1px solid transparent;
+}
+
+.scenario-verdict.ok {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: var(--success);
+}
+
+.scenario-verdict.warn {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--warning);
+}
+
+.scenario-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.scenario-col-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.scenario-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  counter-reset: none;
+}
+
+.scenario-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+}
+
+.scenario-item.matched { background: rgba(52, 211, 153, 0.07); border-color: rgba(52, 211, 153, 0.2); }
+.scenario-item.missing { background: rgba(248, 113, 113, 0.07); border-color: rgba(248, 113, 113, 0.2); }
+.scenario-item.extra { background: rgba(245, 158, 11, 0.07); border-color: rgba(245, 158, 11, 0.2); }
+.scenario-item.optional { background: rgba(148, 163, 184, 0.05); border-color: rgba(148, 163, 184, 0.15); }
+
+.scenario-item-icon.opt {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+  line-height: 0.9rem;
+}
+
+.scenario-fn-alt {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.scenario-optional-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
+.scenario-item-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+}
+
+.scenario-item-icon.ok { color: var(--success); }
+.scenario-item-icon.bad { color: var(--destructive); }
+.scenario-item-icon.extra {
+  color: var(--warning);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+  line-height: 0.9rem;
+}
+
+.scenario-fn {
+  font-family: var(--font-mono);
+  color: var(--foreground);
+}
+
+.scenario-alias {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.scenario-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: hsl(var(--agent-h) 75% 62% / 0.14);
+  border: 1px solid hsl(var(--agent-h) 75% 62% / 0.35);
+  color: hsl(var(--agent-h) 90% 76%);
+}
+
+.scenario-agent-arrow {
+  width: 0.7rem;
+  height: 0.7rem;
+  opacity: 0.75;
+}
+
+/* When a row already has a right-aligned tag, keep the missing badge before it */
+.scenario-item .scenario-missing-tag { margin-left: 0.5rem; }
+.scenario-item .scenario-agent + .scenario-missing-tag { margin-left: 0.5rem; }
+
+.scenario-missing-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--destructive);
+  margin-left: auto;
+}
+
+.scenario-none,
+.scenario-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
+}
+
+.scenario-reference {
+  margin-top: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.scenario-reference summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.scenario-reference p {
+  margin-top: 0.5rem;
+  padding: 0.7rem;
+  background: var(--bg-inset);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+  .scenario-cols { grid-template-columns: 1fr; }
+}
+
 /* ---------- Filters / timeline list ---------- */
 
 .filter-bar {

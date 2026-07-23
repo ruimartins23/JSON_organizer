@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import { ReferenceDataPanel } from './ReferenceDataPanel';
+import { ScenarioCheck } from './ScenarioCheck';
 import { findFixtureMatch } from '../utils/referenceData';
 import type { FixtureFocus } from '../utils/referenceData';
 import {
@@ -593,6 +594,8 @@ export function TimelineView({ data, onReset }: TimelineViewProps) {
           <textarea readOnly value={displayTranscriptText} className="output-textarea" />
         </div>
       </div>
+
+      <ScenarioCheck agentType={data.agentType} events={data.events} />
 
       {data.referenceData && <ReferenceDataPanel data={data.referenceData} focus={fixtureFocus} />}
 
