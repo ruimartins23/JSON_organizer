@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck, ChevronDown } from 'lucide-react';
+import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
 
@@ -48,7 +48,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
   const [scenarioNum, setScenarioNum] = useState(1);
   const [scenarioGender, setScenarioGender] = useState<'male' | 'female'>('male');
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -176,12 +175,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           ))}
         </div>
 
-        <button className="advanced-toggle" onClick={() => setShowAdvanced(a => !a)}>
-          <ChevronDown className={`advanced-chevron ${showAdvanced ? 'open' : ''}`} />
-          Advanced: tool keywords
-        </button>
-
-        {showAdvanced && (
         <div className="config-grid">
           <div className="config-field">
             <label className="field-label">Function Tool Keyword</label>
@@ -228,7 +221,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             </div>
           )}
         </div>
-        )}
 
         <div className="scenario-select-row">
           <div className="mode-selector-header">

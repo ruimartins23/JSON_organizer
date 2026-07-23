@@ -1747,33 +1747,6 @@ input, textarea, select {
   overflow: hidden;
 }
 
-.advanced-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 1.25rem;
-  padding: 0.3rem 0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: transparent;
-  transition: color 0.15s ease;
-}
-
-.advanced-toggle:hover {
-  color: var(--foreground);
-}
-
-.advanced-chevron {
-  width: 0.9rem;
-  height: 0.9rem;
-  transition: transform 0.2s ease;
-}
-
-.advanced-chevron.open {
-  transform: rotate(180deg);
-}
-
 .scenario-select-row {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
