@@ -95,7 +95,9 @@ export function parseAITrainingJSON(
       return;
     }
 
-    const currentTime = obj.eventTime || obj.timestamp || obj.time || parentTime;
+    // Tool calls are described by trace spans, whose time lives in startTime; without
+    // it those events sort arbitrarily against the timestamped transcript events.
+    const currentTime = obj.eventTime || obj.timestamp || obj.time || obj.startTime || parentTime;
 
     // Capture rootSpan for duration calculation
     if (obj.rootSpan && typeof obj.rootSpan.startTime === 'string' && typeof obj.rootSpan.endTime === 'string') {

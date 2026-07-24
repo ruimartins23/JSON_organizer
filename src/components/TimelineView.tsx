@@ -71,45 +71,45 @@ interface FlowSegment {
   startIndex: number;
 }
 
-// Collapse the event list into consecutive runs of "which agent owns the conversation",
-// using transfers as boundaries. User/system events inherit the current segment.
+// Collapse the event list into "who owned the conversation between handoffs".
+// Only transfers start a new segment, so a call whose timestamp lands on the wrong
+// side of a handoff doesn't split the map into phantom segments.
 function buildFlowSegments(events: ParsedEvent[]): FlowSegment[] {
   const segments: FlowSegment[] = [];
-  let current: string | null = null;
+  let nextAgent: string | null = null;
+
+  const agentHint = (event: ParsedEvent): string | null => {
+    if (event.type === 'message') {
+      const role = (event.messageRole || '').toLowerCase();
+      if (role && role !== 'user' && role !== 'system' && role !== 'agent') return event.messageRole!;
+      return null;
+    }
+    return event.raw?.agent || null;
+  };
 
   events.forEach((event, i) => {
-    let agent: string | null = current;
+    let seg = segments[segments.length - 1];
+    if (!seg) {
+      seg = { agent: nextAgent || 'Session Start', count: 0, startIndex: i };
+      segments.push(seg);
+    }
+    seg.count++;
 
-    if (event.type === 'function' || event.type === 'endsession' || event.type === 'transfer') {
-      agent = event.raw?.agent || current;
-    } else if (event.type === 'message') {
-      const role = (event.messageRole || '').toLowerCase();
-      if (role && role !== 'user' && role !== 'system' && role !== 'agent') {
-        agent = event.messageRole!;
-      }
+    // Name the opening segment from the first agent we can actually see.
+    if (seg.agent === 'Session Start') {
+      const hint = agentHint(event);
+      if (hint) seg.agent = hint;
     }
 
-    if (!agent) agent = 'Session Start';
-
-    const last = segments[segments.length - 1];
-    if (last && last.agent === agent) {
-      last.count++;
-    } else {
-      segments.push({ agent, count: 1, startIndex: i });
-    }
-
-    current = agent;
+    // The transfer belongs to the agent handing off; the target owns what follows.
     if (event.type === 'transfer') {
-      current = getTransferTarget(event);
+      nextAgent = getTransferTarget(event);
+      segments.push({ agent: nextAgent, count: 0, startIndex: i + 1 });
     }
   });
 
-  // Fold leading events that happened before any agent was known into the first real segment
-  if (segments.length > 1 && segments[0].agent === 'Session Start') {
-    segments[1].count += segments[0].count;
-    segments[1].startIndex = segments[0].startIndex;
-    segments.shift();
-  }
+  // Drop a trailing segment when the session ends on a transfer.
+  if (segments.length > 0 && segments[segments.length - 1].count === 0) segments.pop();
 
   return segments;
 }
