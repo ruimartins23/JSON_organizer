@@ -32,6 +32,11 @@ const FAMILY: Record<string, string> = {
   transfertoagenttool: 'transfer',
   query_troubleshooting_documents: 'troubleshooting_docs',
   query_troubleshooting_docs: 'troubleshooting_docs',
+  // The guideline says "session"; sessions execute "call".
+  process_end_of_non_escalated_session: 'end_processing',
+  process_end_of_non_escalated_call: 'end_processing',
+  process_escalated_session: 'escalated_processing',
+  process_escalated_call: 'escalated_processing',
   get_area_network_outage_status: 'outage',
   get_customer_line_status: 'line_status',
   perform_device_action: 'device_action',
@@ -130,8 +135,19 @@ export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProp
       const idx = executed.findIndex((e, i) => !used[i] && fams.includes(e.fam));
       if (idx >= 0) {
         used[idx] = true;
+        // An "or" entry is satisfied by either tool, and calling both is fine too:
+        // consume the sibling as well so it isn't reported as an extra call.
+        const names = [executed[idx].name];
+        if (fn.alt) {
+          executed.forEach((e, i) => {
+            if (!used[i] && fams.includes(e.fam)) {
+              used[i] = true;
+              names.push(e.name);
+            }
+          });
+        }
         if (!fn.optional) matched++;
-        return { fn, status: 'matched' as const, execName: executed[idx].name };
+        return { fn, status: 'matched' as const, execName: names.join(' + ') };
       }
       return { fn, status: fn.optional ? ('optional' as const) : ('missing' as const), execName: undefined };
     });
@@ -211,7 +227,7 @@ export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProp
                             : <X className="scenario-item-icon bad" />}
                         <span className="scenario-fn">
                           {row.fn.name}
-                          {row.fn.alt && <span className="scenario-fn-alt"> or {row.fn.alt}</span>}
+                          {row.fn.alt && <span className="scenario-fn-alt"> and/or {row.fn.alt}</span>}
                         </span>
                         {row.status === 'matched' && row.execName && row.execName !== row.fn.name && (
                           <span className="scenario-alias">executed as {row.execName}</span>
