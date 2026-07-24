@@ -2108,10 +2108,21 @@ input, textarea, select {
   gap: 1rem;
 }
 
+/* Fixed-width badge column so every row's content starts on the same line,
+   whatever the speaker's name length. */
 .timeline-row .badge {
-  min-width: 4.5rem;
+  width: 11.25rem;
   margin-top: 0.1rem;
   flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .timeline-row .badge { width: 6.5rem; }
 }
 
 .timeline-row .badge.clickable {
