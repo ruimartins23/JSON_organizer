@@ -362,41 +362,21 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
 
   return (
     <div className="animate-fade-in" style={{ width: '100%' }}>
-      <div className="timeline-header glass">
-        <div>
+      <div className="session-header glass">
+        <div className="session-header-top">
           <h2 className="timeline-title">
             <Activity className="timeline-title-icon" />
             Session Analysis
           </h2>
-          <div className="timeline-meta">
-            <span>Mode:</span>
-            <span className={`badge ${data.agentType === 'prod multi agent' ? 'accent' : 'primary'}`}>
-              {MODE_LABELS[data.agentType] || 'Unknown'}
-            </span>
-            <span>
-              Events Found: <strong>{data.events.length}</strong>
-            </span>
-          </div>
+          <span className={`badge ${data.agentType === 'prod multi agent' ? 'accent' : 'primary'}`}>
+            {MODE_LABELS[data.agentType] || 'Unknown'}
+          </span>
+          <span className="header-events">{data.events.length} events</span>
+          <button onClick={onReset} className="btn-secondary header-reset">
+            Upload New File
+          </button>
         </div>
-        <button onClick={onReset} className="btn-primary">
-          Upload New File
-        </button>
-      </div>
 
-      {data.hasEnvironmentMismatch && (
-        <div className="glass warning-banner">
-          <AlertTriangle className="icon" />
-          <div>
-            <h3>Environment Mismatch</h3>
-            <p>
-              You are uploading a multi-agent JSON file (contains agent transfers) into a
-              single-agent environment. Please verify your environment settings.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="session-facts glass">
         {(data.sessionId || data.duration) && (
           <div className="facts-primary">
             {data.sessionId && (
@@ -445,6 +425,19 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
 
         </div>
       </div>
+
+      {data.hasEnvironmentMismatch && (
+        <div className="glass warning-banner">
+          <AlertTriangle className="icon" />
+          <div>
+            <h3>Environment Mismatch</h3>
+            <p>
+              You are uploading a multi-agent JSON file (contains agent transfers) into a
+              single-agent environment. Please verify your environment settings.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="export-section glass">
         <div className="export-header">
@@ -767,17 +760,17 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
       style={{ animationDelay: `${Math.min(index * 40, 800)}ms` }}
     >
       <div className="timeline-row-main">
-        <span
-          className={`badge ${badgeVariant} ${hasDetails ? 'clickable' : ''}`}
-          style={badgeStyle}
-          onClick={toggleDetails}
-        >
-          {badgeText}
+        <span className="badge-col">
+          <span
+            className={`badge ${badgeVariant} ${hasDetails ? 'clickable' : ''}`}
+            style={badgeStyle}
+            onClick={toggleDetails}
+          >
+            {badgeText}
+          </span>
         </span>
 
-        {isMessage ? (
-          <div className="message-content">{event.messageContent}</div>
-        ) : (
+        {!isMessage && (
           <div className="tool-line" onClick={toggleDetails}>
             <span className={`tool-line-caret ${expanded ? 'expanded' : ''}`}>&#9656;</span>
             <span className="tool-line-name">
@@ -825,6 +818,8 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
         </button>
         {offsetLabel && <span className="event-offset">{offsetLabel}</span>}
       </div>
+
+      {isMessage && <div className="message-content">{event.messageContent}</div>}
 
       {noteOpen && (
         <div className="note-editor animate-fade-in">

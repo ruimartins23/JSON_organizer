@@ -146,7 +146,7 @@ export function ReferenceDataPanel({ data, focus }: ReferenceDataPanelProps) {
   const q = query.trim().toLowerCase();
 
   return (
-    <div className="reference-panel glass">
+    <div className={`reference-panel glass ${open ? "" : "collapsed"}`}>
       <button className="reference-header" onClick={() => setOpen(o => !o)}>
         <Database className="reference-icon" />
         <div className="reference-title-group">

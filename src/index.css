@@ -97,6 +97,12 @@ input, textarea, select {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
+/* Collapsed tool panels are chrome, not content: let the eye skip them. */
+.glass.collapsed {
+  background: rgba(15, 18, 32, 0.3);
+  box-shadow: none;
+}
+
 .panel {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -207,6 +213,35 @@ input, textarea, select {
   font-size: 1.1rem;
   max-width: 560px;
   margin: 0 auto;
+}
+
+/* Once a session is loaded the hero is just chrome: shrink it to a title bar. */
+.header.compact {
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header.compact .header-icon-container {
+  padding: 0.5rem;
+  margin-bottom: 0;
+  border-radius: 0.7rem;
+}
+
+.header.compact .header-icon-container::before {
+  animation: none;
+  opacity: 0.5;
+}
+
+.header.compact .header-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.header.compact h1 {
+  font-size: 1.4rem;
+  margin-bottom: 0;
 }
 
 .main-content {
@@ -882,6 +917,30 @@ input, textarea, select {
 
 /* ---------- Merged session facts strip ---------- */
 
+.session-header {
+  padding: 1.1rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.session-header-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.header-events {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.header-reset {
+  margin-left: auto;
+}
+
 .session-facts {
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
@@ -1111,19 +1170,36 @@ input, textarea, select {
 }
 
 .export-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-}
-
-.export-card {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  background: var(--bg-inset);
-  padding: 1.2rem;
-  border-radius: 0.8rem;
-  border: 1px solid var(--border-glass);
+}
+
+.export-cards .export-card + .export-card {
+  border-top: 1px solid var(--border-glass);
+}
+
+.export-card-title {
+  width: 9rem;
+  flex-shrink: 0;
+}
+
+/* Flat rows rather than cards inside a card. */
+.export-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem 0;
+}
+
+.export-card .export-card-filename {
+  flex: 1;
+  min-width: 0;
+}
+
+.export-card .btn-secondary {
+  margin-top: 0;
+  width: auto;
+  flex-shrink: 0;
 }
 
 .export-card-title {
@@ -1136,11 +1212,6 @@ input, textarea, select {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   word-break: break-all;
-}
-
-.export-card .btn-secondary {
-  margin-top: auto;
-  width: 100%;
 }
 
 /* ---------- Summary / transcript panes ---------- */
@@ -1170,11 +1241,10 @@ input, textarea, select {
 .output-textarea {
   width: 100%;
   height: 380px;
-  background: var(--bg-inset);
+  background: transparent;
   color: var(--foreground);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-sm);
-  padding: 1rem;
+  border: none;
+  padding: 0.25rem 0 0;
   resize: vertical;
   font-family: var(--font-mono);
   font-size: 0.85rem;
@@ -1217,10 +1287,9 @@ input, textarea, select {
 .summary-review {
   height: 380px;
   overflow-y: auto;
-  background: var(--bg-inset);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem;
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0 0;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.6;
@@ -2108,34 +2177,52 @@ input, textarea, select {
   gap: 1rem;
 }
 
-/* Fixed-width badge column so every row's content starts on the same line,
-   whatever the speaker's name length. */
-.timeline-row .badge {
-  width: 11.25rem;
-  margin-top: 0.1rem;
+/* The column is fixed so every row's content starts on the same line; the pill
+   inside hugs its label and sits flush against the content. */
+.badge-col {
   flex-shrink: 0;
+  display: flex;
+  margin-top: 0.15rem;
+}
+
+/* Repeated on every row, so the label stays light: a faint wash of its own
+   colour to separate it from the content, not a full chip. */
+.timeline-row .badge {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
-  text-align: center;
-}
-
-@media (max-width: 860px) {
-  .timeline-row .badge { width: 6.5rem; }
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  border: none;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .timeline-row .badge.clickable {
   cursor: pointer;
 }
 
+/* Tool/end/response badges stay quiet so agent colours read clearly; the
+   coloured dot on the spine already carries the event type. */
+.timeline-row .badge.diag,
+.timeline-row .badge.destructive,
+.timeline-row .badge.success {
+  background: rgba(148, 163, 184, 0.07);
+  border-color: rgba(148, 163, 184, 0.16);
+  color: var(--text-secondary);
+}
+
+/* The speaker sits on its own line so the message body can use the full
+   width instead of being pushed into a narrow column beside a long name. */
 .message-content {
   color: var(--foreground);
   font-size: 0.95rem;
   line-height: 1.55;
   white-space: pre-wrap;
-  flex: 1;
-  min-width: 0;
+  margin-top: 0.1rem;
 }
 
 .tool-line {

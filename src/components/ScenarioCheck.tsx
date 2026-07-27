@@ -159,7 +159,7 @@ export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProp
   const allPresent = total > 0 && matched === total;
 
   return (
-    <div className="scenario-panel glass">
+    <div className={`scenario-panel glass ${open ? "" : "collapsed"}`}>
       <button className="reference-header" onClick={() => setOpen(o => !o)}>
         <ClipboardCheck className="reference-icon" />
         <div className="reference-title-group">

@@ -25,16 +25,18 @@ function App() {
 
   return (
     <div className="gradient-bg app-container">
-      <header className="header animate-fade-in">
+      <header className={`header animate-fade-in ${timelineData ? 'compact' : ''}`}>
         <div className="header-icon-container glass">
           <BrainCircuit className="header-icon" />
         </div>
         <h1>
           JSON <span className="gradient-text">Extractor</span>
         </h1>
-        <p>
-          Upload your JSON files to visualize functions, responses and transfers!
-        </p>
+        {!timelineData && (
+          <p>
+            Upload your JSON files to visualize functions, responses and transfers!
+          </p>
+        )}
       </header>
 
       <main className="main-content">
