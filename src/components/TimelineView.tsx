@@ -514,11 +514,11 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
           </div>
 
           <button
-            onClick={() => { handleDownloadJson(); handleDownloadTranscript(); }}
+            onClick={() => { handleDownloadJson(); handleDownloadTranscript(); handleDownloadAudio(); }}
             className="btn-primary"
           >
             <Download className="btn-icon" />
-            Download Both
+            Download All
           </button>
         </div>
 
@@ -544,7 +544,7 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
           <div className="export-card">
             <span className="export-card-title">Audio File</span>
             <span className="export-card-filename">
-              {audioBlob ? audioFileName : 'Convert a recording in the Audio panel below'}
+              {audioBlob ? audioFileName : 'Convert a recording in the Audio panel above'}
             </span>
             <button onClick={handleDownloadAudio} className="btn-secondary" disabled={!audioBlob}>
               <Download className="btn-icon" />

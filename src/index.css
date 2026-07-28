@@ -1816,27 +1816,151 @@ input, textarea, select {
   overflow: hidden;
 }
 
+.audio-track {
+  position: relative;
+  margin: 1rem 0 0.75rem;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  touch-action: none;
+  user-select: none;
+}
+
 .audio-wave {
   display: block;
   width: 100%;
-  height: 96px;
-  margin: 0.9rem 0 0.4rem;
-  background: var(--bg-inset);
-  border: 1px solid var(--border-glass);
+  height: 120px;
+  cursor: text;
   border-radius: var(--radius-sm);
-  cursor: crosshair;
-  touch-action: none;
 }
 
-.audio-scale {
+/* Everything outside the trim is dimmed */
+.audio-dim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(8, 8, 13, 0.62);
+  pointer-events: none;
+}
+
+/* Trim handles: wide invisible grab area, visible bar in the middle */
+.audio-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  margin-left: -14px;
+  cursor: col-resize;
   display: flex;
+  justify-content: center;
+  z-index: 3;
+}
+
+.audio-handle-bar {
+  width: 4px;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(8, 8, 13, 0.6);
+  transition: width 0.12s ease, background 0.12s ease;
+}
+
+.audio-handle:hover .audio-handle-bar,
+.audio-handle:active .audio-handle-bar {
+  width: 7px;
+  background: #93c5fd;
+}
+
+/* A grip nub so the handle reads as draggable */
+.audio-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 30px;
+  margin-top: -15px;
+  border-radius: 4px;
+  background: var(--primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.audio-handle:hover::after { background: #93c5fd; }
+
+/* Play cursor */
+.audio-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  margin-left: -8px;
+  cursor: grab;
+  display: flex;
+  justify-content: center;
+  z-index: 4;
+}
+
+.audio-cursor:active { cursor: grabbing; }
+
+.audio-cursor::before {
+  content: '';
+  width: 2px;
+  height: 100%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.audio-cursor-grip {
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* Numeric readout under the track */
+.audio-readout {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
+}
+
+.audio-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.audio-field.center { align-items: center; }
+.audio-field.right { align-items: flex-end; }
+
+.audio-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-stepper .btn-secondary {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+}
+
+.audio-time {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--primary);
+  font-size: 0.9rem;
+  color: var(--foreground);
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+.audio-time.strong {
+  color: #fff;
+  font-weight: 600;
 }
 
 .audio-format {
