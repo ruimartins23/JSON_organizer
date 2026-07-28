@@ -8,7 +8,8 @@ interface AudioToolProps {
   baseName: string;
   format: AudioFormat;
   onFormatChange: (format: AudioFormat) => void;
-  onAudioReady: (blob: Blob | null) => void;
+  /** Hands up an encoder for the current file and trim, or null when no file is loaded. */
+  onEncoderChange: (encode: ((onProgress?: (f: number) => void) => Promise<Blob>) | null) => void;
 }
 
 const BUCKETS = 700;
@@ -20,15 +21,14 @@ function preciseClock(seconds: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
 }
 
-export function AudioTool({ baseName, format, onFormatChange, onAudioReady }: AudioToolProps) {
+export function AudioTool({ baseName, format, onFormatChange, onEncoderChange }: AudioToolProps) {
   const [open, setOpen] = useState(false);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [sourceName, setSourceName] = useState('');
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
   const [cursor, setCursor] = useState(0);
-  const [status, setStatus] = useState<'idle' | 'decoding' | 'encoding'>('idle');
-  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<'idle' | 'decoding'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState<number | null>(null);
@@ -62,7 +62,6 @@ export function AudioTool({ baseName, format, onFormatChange, onAudioReady }: Au
     stopPlayback();
     setError(null);
     setStatus('decoding');
-    onAudioReady(null);
     try {
       const decoded = await decodeAudioFile(file);
       setBuffer(decoded);
@@ -105,21 +104,12 @@ export function AudioTool({ baseName, format, onFormatChange, onAudioReady }: Au
 
   const preview = () => (playing ? stopPlayback() : playFrom(cursor));
 
-  const convert = async () => {
-    if (!buffer) return;
-    stopPlayback();
-    setError(null);
-    setStatus('encoding');
-    setProgress(0);
-    try {
-      onAudioReady(await encodeAudio(format, buffer, start, end, setProgress));
-    } catch (e: any) {
-      setError(`Conversion failed: ${e?.message || e}`);
-      onAudioReady(null);
-    } finally {
-      setStatus('idle');
-    }
-  };
+  // Publish an encoder that always reflects the current file, trim and format,
+  // so downloading can never hand back a stale clip.
+  useEffect(() => {
+    if (!buffer) return onEncoderChange(null);
+    onEncoderChange((onProgress) => encodeAudio(format, buffer, start, end, onProgress));
+  }, [buffer, start, end, format, onEncoderChange]);
 
   // ---- Dragging: each control owns its own pointer, so nothing is ambiguous ----
   const timeAt = (clientX: number) => {
@@ -301,12 +291,9 @@ export function AudioTool({ baseName, format, onFormatChange, onAudioReady }: Au
                 <button className="btn-secondary" onClick={() => { setStart(0); setEnd(duration); setCursor(0); }}>
                   <RotateCcw className="btn-icon-sm" /> Reset trim
                 </button>
-                <button className="btn-primary" onClick={convert} disabled={status === 'encoding'}>
-                  <Scissors className="btn-icon" />
-                  {status === 'encoding' ? `Converting ${Math.round(progress * 100)}%` : `Convert to .${format}`}
-                </button>
                 <span className="audio-note">
-                  {formatClock(trimmed)} of {formatClock(duration)} → {fileName}
+                  <Scissors className="btn-icon-sm" /> {formatClock(trimmed)} of {formatClock(duration)} will be
+                  saved as {fileName} when you download.
                 </span>
               </div>
             </>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import { ReferenceDataPanel } from './ReferenceDataPanel';
@@ -268,7 +268,14 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
   const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [fixtureFocus, setFixtureFocus] = useState<FixtureFocus | undefined>();
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const audioEncoderRef = useRef<((onProgress?: (f: number) => void) => Promise<Blob>) | null>(null);
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioProgress, setAudioProgress] = useState<number | null>(null);
+
+  const setAudioEncoder = useCallback((fn: ((onProgress?: (f: number) => void) => Promise<Blob>) | null) => {
+    audioEncoderRef.current = fn;
+    setAudioReady(!!fn);
+  }, []);
   const [audioFormat, setAudioFormat] = useState<AudioFormat>('m4a');
 
   // A fresh upload clears any prior review marks and notes.
@@ -345,16 +352,24 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
     if (data.rawJsonText) downloadFile(data.rawJsonText, summaryFileName);
   };
 
-  const handleDownloadAudio = () => {
-    if (!audioBlob) return;
-    const url = URL.createObjectURL(audioBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = audioFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  /** Encodes on demand so the download always matches the current trim. */
+  const handleDownloadAudio = async () => {
+    const encode = audioEncoderRef.current;
+    if (!encode || audioProgress !== null) return;
+    setAudioProgress(0);
+    try {
+      const blob = await encode(setAudioProgress);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = audioFileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setAudioProgress(null);
+    }
   };
 
   const handleDownloadTranscript = () => {
@@ -448,7 +463,7 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
         baseName={audioBaseName}
         format={audioFormat}
         onFormatChange={setAudioFormat}
-        onAudioReady={setAudioBlob}
+        onEncoderChange={setAudioEncoder}
       />
 
       {data.hasEnvironmentMismatch && (
@@ -514,7 +529,7 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
           </div>
 
           <button
-            onClick={() => { handleDownloadJson(); handleDownloadTranscript(); handleDownloadAudio(); }}
+            onClick={async () => { handleDownloadJson(); handleDownloadTranscript(); await handleDownloadAudio(); }}
             className="btn-primary"
           >
             <Download className="btn-icon" />
@@ -544,11 +559,11 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
           <div className="export-card">
             <span className="export-card-title">Audio File</span>
             <span className="export-card-filename">
-              {audioBlob ? audioFileName : 'Convert a recording in the Audio panel above'}
+              {audioReady ? audioFileName : 'Load a recording in the Audio panel above'}
             </span>
-            <button onClick={handleDownloadAudio} className="btn-secondary" disabled={!audioBlob}>
+            <button onClick={handleDownloadAudio} className="btn-secondary" disabled={!audioReady || audioProgress !== null}>
               <Download className="btn-icon" />
-              Download Audio
+              {audioProgress !== null ? `Converting ${Math.round(audioProgress * 100)}%` : 'Download Audio'}
             </button>
           </div>
         </div>
