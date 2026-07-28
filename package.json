@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@vitejs/plugin-react": "^6.0.2",
     "lucide-react": "^1.21.0",
+    "mp4-muxer": "^5.2.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "typescript": "~6.0.2",

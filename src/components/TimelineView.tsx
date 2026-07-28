@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import { ReferenceDataPanel } from './ReferenceDataPanel';
 import { ScenarioCheck } from './ScenarioCheck';
+import { AudioTool } from './AudioTool';
+import type { AudioFormat } from '../utils/audio';
 import { findFixtureMatch } from '../utils/referenceData';
 import type { FixtureFocus } from '../utils/referenceData';
 import {
@@ -266,6 +268,8 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
   const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [fixtureFocus, setFixtureFocus] = useState<FixtureFocus | undefined>();
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioFormat, setAudioFormat] = useState<AudioFormat>('m4a');
 
   // A fresh upload clears any prior review marks and notes.
   useEffect(() => {
@@ -299,6 +303,8 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
   const taskStr = taskNumber.trim() || '(task number)';
   const summaryFileName = `Telco-AM-${taskStr}-${clarity}-JSON-${selectedAgent}.txt`;
   const transcriptFileName = `Telco-AM-${taskStr}-${clarity}-Transcript-${selectedAgent}.txt`;
+  const audioBaseName = `Telco-AM-${taskStr}-${clarity}-Audio-${selectedAgent}`;
+  const audioFileName = `${audioBaseName}.${audioFormat}`;
 
   const stats = useMemo(() => {
     const counts = { functions: 0, transfers: 0, messages: 0 };
@@ -337,6 +343,18 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
 
   const handleDownloadJson = () => {
     if (data.rawJsonText) downloadFile(data.rawJsonText, summaryFileName);
+  };
+
+  const handleDownloadAudio = () => {
+    if (!audioBlob) return;
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = audioFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleDownloadTranscript = () => {
@@ -426,6 +444,13 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
         </div>
       </div>
 
+      <AudioTool
+        baseName={audioBaseName}
+        format={audioFormat}
+        onFormatChange={setAudioFormat}
+        onAudioReady={setAudioBlob}
+      />
+
       {data.hasEnvironmentMismatch && (
         <div className="glass warning-banner">
           <AlertTriangle className="icon" />
@@ -513,6 +538,17 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
             <button onClick={handleDownloadTranscript} className="btn-secondary">
               <Download className="btn-icon" />
               Download Transcript
+            </button>
+          </div>
+
+          <div className="export-card">
+            <span className="export-card-title">Audio File</span>
+            <span className="export-card-filename">
+              {audioBlob ? audioFileName : 'Convert a recording in the Audio panel below'}
+            </span>
+            <button onClick={handleDownloadAudio} className="btn-secondary" disabled={!audioBlob}>
+              <Download className="btn-icon" />
+              Download Audio
             </button>
           </div>
         </div>
