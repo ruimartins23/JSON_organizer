@@ -10,18 +10,24 @@ import { BrainCircuit } from 'lucide-react';
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
   const [scenario, setScenario] = useState<ScenarioSelection>({ num: 1, gender: 'male' });
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
 
   const handleFileParsed = (
     data: unknown,
     mode: EnvironmentMode,
     config: ParserConfig,
     selectedScenario: ScenarioSelection,
+    media: File | null,
   ) => {
     setScenario(selectedScenario);
+    setMediaFile(media);
     setTimelineData(parseAITrainingJSON(data, mode, config));
   };
 
-  const reset = () => setTimelineData(null);
+  const reset = () => {
+    setTimelineData(null);
+    setMediaFile(null);
+  };
 
   return (
     <div className="gradient-bg app-container">
@@ -44,7 +50,7 @@ function App() {
         {!timelineData ? (
           <Dropzone onFileParsed={handleFileParsed} />
         ) : (
-          <TimelineView data={timelineData} onReset={reset} scenario={scenario} />
+          <TimelineView data={timelineData} onReset={reset} scenario={scenario} mediaFile={mediaFile} />
         )}
       </main>
       

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 
 // Bump this key when a new announcement should re-appear for everyone.
-const STORAGE_KEY = 'ai-json-organizer:announcement:inline-review-v1';
+const STORAGE_KEY = 'ai-json-organizer:announcement:recording-upload-v1';
 
 export function Announcement() {
   const [visible, setVisible] = useState(() => {
@@ -32,11 +32,10 @@ export function Announcement() {
       <div className="announcement-body">
         <h3 className="announcement-title">Quick update</h3>
         <p>
-          Hey guys! You can now mark each function and transfer as{' '}
-          <strong className="announcement-ok">correct</strong> or{' '}
-          <strong className="announcement-bad">incorrect</strong> right in the timeline.
-          Just hit the ✓ or ✗ next to the call. The Function &amp; Transfer Summary updates
-          itself so you can copy it straight out. Much love, Rui 💙
+          Hey guys! You can now drop the recording in right here on this page, next to the JSON.
+          It carries over to the Audio panel already loaded, so you just trim it and hit Download All.
+          It is optional though: leave it empty, upload the JSON on its own, and you can still add
+          the recording later on the next page. Much love, Rui 💙
         </p>
         <div className="announcement-actions">
           <button className="btn-secondary" onClick={dismissForever}>

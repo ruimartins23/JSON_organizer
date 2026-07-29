@@ -4,6 +4,8 @@ import { decodeAudioFile, encodeAudio, waveformPeaks, formatClock } from '../uti
 import type { AudioFormat } from '../utils/audio';
 
 interface AudioToolProps {
+  /** Recording attached on the upload page, loaded automatically when present. */
+  initialFile?: File | null;
   /** Name the exported file will use, minus the extension. */
   baseName: string;
   format: AudioFormat;
@@ -21,8 +23,8 @@ function preciseClock(seconds: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
 }
 
-export function AudioTool({ baseName, format, onFormatChange, onEncoderChange }: AudioToolProps) {
-  const [open, setOpen] = useState(false);
+export function AudioTool({ initialFile, baseName, format, onFormatChange, onEncoderChange }: AudioToolProps) {
+  const [open, setOpen] = useState(!!initialFile);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [sourceName, setSourceName] = useState('');
   const [start, setStart] = useState(0);
@@ -58,7 +60,7 @@ export function AudioTool({ baseName, format, onFormatChange, onEncoderChange }:
 
   useEffect(() => stopPlayback, [stopPlayback]);
 
-  const loadFile = async (file: File) => {
+  const loadFile = useCallback(async (file: File) => {
     stopPlayback();
     setError(null);
     setStatus('decoding');
@@ -75,7 +77,12 @@ export function AudioTool({ baseName, format, onFormatChange, onEncoderChange }:
     } finally {
       setStatus('idle');
     }
-  };
+  }, [stopPlayback]);
+
+  // A recording attached on the upload page lands here ready to trim.
+  useEffect(() => {
+    if (initialFile) loadFile(initialFile);
+  }, [initialFile, loadFile]);
 
   const playFrom = useCallback((from: number) => {
     if (!buffer) return;
@@ -184,7 +191,8 @@ export function AudioTool({ baseName, format, onFormatChange, onEncoderChange }:
       g.fillStyle = inRange ? 'rgba(96,165,250,0.95)' : 'rgba(148,163,184,0.18)';
       g.fillRect(x, (h - barH) / 2, Math.max(0.8, barW - 0.4), barH);
     });
-  }, [peaks, buffer, start, end]);
+    // `open` matters: the canvas is unmounted while collapsed, so re-expanding needs a redraw.
+  }, [peaks, buffer, start, end, open]);
 
   const cursorAt = playhead ?? cursor;
 

@@ -16,6 +16,8 @@ interface TimelineViewProps {
   data: OrganizedTimeline;
   onReset: () => void;
   scenario?: { num: number; gender: 'male' | 'female' };
+  /** Recording picked on the upload page, if the user attached one there. */
+  mediaFile?: File | null;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -250,7 +252,7 @@ function downloadFile(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
+export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineViewProps) {
   const [copySummaryLabel, copySummary] = useCopyToClipboard('Copy Summary');
   const [copyTranscriptLabel, copyTranscript] = useCopyToClipboard('Copy Transcript');
   const [copySessionLabel, copySession] = useCopyToClipboard('Copy');
@@ -460,6 +462,7 @@ export function TimelineView({ data, onReset, scenario }: TimelineViewProps) {
       </div>
 
       <AudioTool
+        initialFile={mediaFile}
         baseName={audioBaseName}
         format={audioFormat}
         onFormatChange={setAudioFormat}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck } from 'lucide-react';
+import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck, AudioLines, X } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
 
@@ -9,7 +9,25 @@ export interface ScenarioSelection {
 }
 
 interface DropzoneProps {
-  onFileParsed: (data: unknown, mode: EnvironmentMode, config: ParserConfig, scenario: ScenarioSelection) => void;
+  onFileParsed: (
+    data: unknown,
+    mode: EnvironmentMode,
+    config: ParserConfig,
+    scenario: ScenarioSelection,
+    media: File | null,
+  ) => void;
+}
+
+const MEDIA_ACCEPT = 'video/*,audio/*,.mp4,.mov,.m4v,.webm,.m4a,.mp3,.wav,.aac,.ogg';
+
+function isMediaFile(file: File): boolean {
+  if (file.type.startsWith('video/') || file.type.startsWith('audio/')) return true;
+  return /\.(mp4|mov|m4v|webm|mkv|m4a|mp3|wav|aac|ogg)$/i.test(file.name);
+}
+
+function fileSize(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 const MODES: { value: EnvironmentMode; label: string }[] = [
@@ -48,8 +66,10 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [endSessionKeyword, setEndSessionKeyword] = useState('EndSessionTool');
   const [scenarioNum, setScenarioNum] = useState(1);
   const [scenarioGender, setScenarioGender] = useState<'male' | 'female'>('male');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
 
   // Scenario numbers depend on the environment (single vs multi) and the gender.
   const scenarioNumbers = useMemo(() => {
@@ -74,10 +94,13 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const processText = (text: string) => {
     try {
       const json = JSON.parse(text);
-      onFileParsed(json, mode, { functionKeyword, transferKeyword, endSessionKeyword }, {
-        num: activeScenario,
-        gender: scenarioGender,
-      });
+      onFileParsed(
+        json,
+        mode,
+        { functionKeyword, transferKeyword, endSessionKeyword },
+        { num: activeScenario, gender: scenarioGender },
+        mediaFile,
+      );
       setError(null);
     } catch (err: any) {
       console.error(err);
@@ -86,6 +109,12 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   };
 
   const processFile = (file: File) => {
+    // A dropped recording fills the optional media slot instead of failing as bad JSON.
+    if (isMediaFile(file)) {
+      setMediaFile(file);
+      setError(null);
+      return;
+    }
     if (!file.name.endsWith('.txt') && !file.name.endsWith('.json')) {
       setError('Please upload a valid .txt or .json file.');
       return;
@@ -307,6 +336,48 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               Process Pasted Text
             </button>
           </div>
+        </div>
+
+        <div className="glass media-slot">
+          <div className="media-slot-icon">
+            <AudioLines />
+          </div>
+          <div className="media-slot-body">
+            <div className="media-slot-title">
+              Recording <span className="media-slot-optional">optional</span>
+            </div>
+            {mediaFile ? (
+              <span className="media-slot-file">
+                {mediaFile.name} <span className="media-slot-size">{fileSize(mediaFile.size)}</span>
+              </span>
+            ) : (
+              <span className="media-slot-hint">
+                Add the .mp4 or .mov now and it will be waiting in the Audio panel, or skip it and
+                upload it there later.
+              </span>
+            )}
+          </div>
+          <div className="media-slot-actions">
+            <button className="btn-secondary" onClick={() => mediaInputRef.current?.click()}>
+              {mediaFile ? 'Change' : 'Add recording'}
+            </button>
+            {mediaFile && (
+              <button className="icon-btn" title="Remove" onClick={() => setMediaFile(null)}>
+                <X />
+              </button>
+            )}
+          </div>
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept={MEDIA_ACCEPT}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setMediaFile(file);
+              e.target.value = '';
+            }}
+          />
         </div>
       </div>
 
