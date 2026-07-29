@@ -25,6 +25,8 @@ function isMediaFile(file: File): boolean {
   return /\.(mp4|mov|m4v|webm|mkv|m4a|mp3|wav|aac|ogg)$/i.test(file.name);
 }
 
+const shortcutHint = navigator.platform.toLowerCase().includes('mac') ? '⌘ + Enter' : 'Ctrl + Enter';
+
 function fileSize(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -70,6 +72,12 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // Errors sit below the upload box, which can be off screen after a long scroll.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
 
   // Scenario numbers depend on the environment (single vs multi) and the gender.
   const scenarioNumbers = useMemo(() => {
@@ -294,7 +302,8 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
       </div>
 
       <div className="upload-section animate-fade-in">
-        <div
+        <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           className={`glass dropzone-area ${isDragging ? 'dragging' : ''}`}
         >
@@ -303,21 +312,27 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           </div>
           <h3 className="dropzone-title">Upload JSON File</h3>
           <p className="dropzone-subtitle">
-            Drag and drop your .txt or .json file here, or click to browse
+            Drag and drop your .txt or .json file anywhere on this page
           </p>
 
-          <div className="btn-primary">
+          <span className="btn-primary">
             <FileJson className="btn-icon" />
             Select File
+          </span>
+        </button>
+        <input
+          type="file"
+          accept=".txt,.json"
+          style={{ display: 'none' }}
+          onChange={handleFileInput}
+          ref={fileInputRef}
+        />
+
+        {error && (
+          <div className="error-message animate-fade-in" ref={errorRef}>
+            {error}
           </div>
-          <input
-            type="file"
-            accept=".txt,.json"
-            style={{ display: 'none' }}
-            onChange={handleFileInput}
-            ref={fileInputRef}
-          />
-        </div>
+        )}
 
         <div className="divider">
           <span>OR PASTE CONTENT</span>
@@ -329,9 +344,13 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             placeholder="Paste your raw JSON content here..."
             value={pastedText}
             onChange={(e) => setPastedText(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handlePasteSubmit();
+            }}
           />
           <div className="paste-actions">
-            <button className="btn-primary" onClick={handlePasteSubmit}>
+            <span className="paste-shortcut">{shortcutHint} to process</span>
+            <button className="btn-primary" onClick={handlePasteSubmit} disabled={!pastedText.trim()}>
               <ClipboardPaste className="btn-icon" />
               Process Pasted Text
             </button>
@@ -380,12 +399,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           />
         </div>
       </div>
-
-      {error && (
-        <div className="error-message animate-fade-in">
-          {error}
-        </div>
-      )}
 
       {isDragging && (
         <div className="drop-overlay">
