@@ -44,7 +44,7 @@ While recording you get a timer, a live meter per channel, and a volume slider p
 
 On macOS, only the **Chrome Tab** pane of the share dialog carries audio at all: Entire Screen and Window have no system audio to offer, which is why people reach for BlackHole or Loopback. On Windows, Entire Screen also works if you tick "share system audio". The in-app wording adapts to the platform.
 
-Chrome and Edge only, since no other browser can capture tab audio. Elsewhere the button is replaced with a note and you carry on capturing the way you do now.
+Chrome and Edge only, since no other browser can capture tab audio. On Firefox and Safari the button is replaced with a note: there you still record with OBS and load the file yourself, exactly as before.
 
 ## Exports
 

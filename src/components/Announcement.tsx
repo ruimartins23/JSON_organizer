@@ -42,8 +42,10 @@ export function Announcement() {
           yourself. The steps are written next to the button.
         </p>
         <p>
-          Recorded it somewhere else? You can still load the file yourself, either on the upload page
-          next to the JSON or in the Audio panel. Much love, Rui 💙
+          This only works on <strong>Chrome and Edge</strong>. Firefox and Safari cannot record tab
+          audio at all, so on those you still record with OBS like before and load the file yourself,
+          either on the upload page next to the JSON or in the Audio panel. Same if you already have
+          a file lying around. Much love, Rui 💙
         </p>
         <div className="announcement-actions">
           <button className="btn-secondary" onClick={dismissForever}>
