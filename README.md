@@ -24,7 +24,7 @@ It also does the boring parts of the review for you:
 | **Flow Map** | Which agent held the call, for how long, and where it handed off. |
 | **Scenario Check** `beta` | Pick the scenario you are rating and it diffs the calls the model actually made against the ones the guideline expects: matched, missing, extra, and who owned each one. |
 | **Data Fixture** | The context the model was given (accounts, plans, features, technicians, outages, line diagnostics) as searchable tables. Click an argument in the timeline and it jumps to the row it refers to. |
-| **Audio** | Attach the recording, trim it on the waveform, and download it as `.m4a` or `.mp3` named to match the other exports. |
+| **Audio** | Record the call in the browser, or attach a file you captured yourself. Trim it on the waveform and download it as `.m4a` or `.mp3`, named to match the other exports. |
 
 ## Using it
 
@@ -33,6 +33,18 @@ It also does the boring parts of the review for you:
 3. **Add the JSON.** Drop the file anywhere on the page, browse for it, or paste the raw text.
 4. **Add the recording.** Optional, and optional in both directions: attach the `.mp4`/`.mov` here and it arrives on the next page already loaded, or skip it now and add it in the Audio panel later.
 5. **Review, then Download All.** JSON, transcript and audio come out with matching names.
+
+### Recording without OBS
+
+The Audio panel has a **Record the call** button. It captures your microphone and the agent's voice at the same time, mixes them, and drops the result straight into the trimmer, so there is no separate capture app and no mp4 to convert.
+
+Chrome will ask what to share. **Pick the tab the agent is playing in and turn the audio toggle on.** Without it you get a silent capture, and the app says so rather than recording nothing. The steps are spelled out next to the button.
+
+While recording you get a timer, a live meter per channel, and a volume slider per channel that takes effect immediately, so a side that is too loud can be fixed during the call rather than after it. The meter reads after the slider, so it shows what is actually being recorded.
+
+On macOS, only the **Chrome Tab** pane of the share dialog carries audio at all: Entire Screen and Window have no system audio to offer, which is why people reach for BlackHole or Loopback. On Windows, Entire Screen also works if you tick "share system audio". The in-app wording adapts to the platform.
+
+Chrome and Edge only, since no other browser can capture tab audio. Elsewhere the button is replaced with a note and you carry on capturing the way you do now.
 
 ## Exports
 
@@ -66,6 +78,7 @@ The two interesting corners:
 
 - **Parsing.** `src/utils/parser.ts` walks the JSON without assuming a fixed shape, since the dumps differ between environments. Timing is the fiddly part: transcript events carry `eventTime`, but tool calls are trace spans whose time lives in `startTime`, and missing that puts calls in the wrong order everywhere downstream.
 - **Audio.** All in the browser. `AudioContext` decodes whatever the file is, `AudioEncoder` plus `mp4-muxer` writes the `.m4a`, and `lamejs` writes the `.mp3` because browsers have no native MP3 encoder. Encoding runs at download time, not before, so re-trimming can never hand you a stale clip.
+- **Recording.** `src/utils/recorder.ts` joins `getUserMedia` (mic) and `getDisplayMedia` (tab) into one Web Audio graph and records the mix with `MediaRecorder`. The result is just a `File`, so it enters the same decode-and-trim path as an uploaded one. Two quirks worth knowing: Chrome only offers the audio checkbox when video is requested too, and stopping that unused video track would end the whole share, so it is kept alive and ignored.
 
 ```
 src/

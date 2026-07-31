@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { AudioLines, ChevronDown, Play, Pause, Scissors, RotateCcw } from 'lucide-react';
+import { AudioRecorder } from './AudioRecorder';
 import { decodeAudioFile, encodeAudio, waveformPeaks, formatClock } from '../utils/audio';
 import type { AudioFormat } from '../utils/audio';
 
@@ -203,7 +204,9 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
         <div className="reference-title-group">
           <h3 className="panel-title">Audio</h3>
           <span className="reference-subtitle">
-            {buffer ? `${sourceName} — ${formatClock(trimmed)} selected` : 'Convert a recording to .m4a or .mp3 and trim it'}
+            {buffer
+              ? `${sourceName} — ${formatClock(trimmed)} selected`
+              : 'Record the call or load a file, then trim it and save as .m4a or .mp3'}
           </span>
         </div>
         <ChevronDown className={`reference-chevron ${open ? 'open' : ''}`} />
@@ -235,6 +238,12 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
             {status === 'decoding' && <span className="audio-note">Reading audio…</span>}
             {error && <span className="audio-error">{error}</span>}
           </div>
+
+          <AudioRecorder
+            baseName={`${baseName}-recording`}
+            onRecorded={loadFile}
+            disabled={status === 'decoding'}
+          />
 
           {buffer && (
             <>
