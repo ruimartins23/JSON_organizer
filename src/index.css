@@ -2176,6 +2176,22 @@ input, textarea, select {
   margin-top: 0.85rem;
 }
 
+.recorder-recovered {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.1);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.recorder-recovered span { flex: 1; min-width: 15rem; }
+.recorder-recovered strong { color: var(--text-primary); }
+
 .recorder-guide {
   display: flex;
   flex-direction: column;
