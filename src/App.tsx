@@ -6,6 +6,8 @@ import { Announcement } from './components/Announcement';
 import { parseAITrainingJSON } from './utils/parser';
 import type { OrganizedTimeline, EnvironmentMode, ParserConfig } from './utils/parser';
 import { BrainCircuit } from 'lucide-react';
+// The /react entry point, not /next: this is a Vite SPA.
+import { Analytics } from '@vercel/analytics/react';
 
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
@@ -57,6 +59,8 @@ function App() {
       <footer className="footer">
         <p>Single & Multi Agent Support</p>
       </footer>
+
+      <Analytics />
     </div>
   );
 }
