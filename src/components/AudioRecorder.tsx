@@ -9,6 +9,8 @@ interface AudioRecorderProps {
   baseName: string;
   /** Handed the recording once it stops, ready to trim. */
   onRecorded: (file: File) => void;
+  /** Hidden once a recording exists, since the steps have served their purpose. */
+  showGuide?: boolean;
   disabled?: boolean;
 }
 
@@ -59,7 +61,7 @@ function Channel({ label, level, gain, onGain, silent }: ChannelProps) {
   );
 }
 
-export function AudioRecorder({ baseName, onRecorded, disabled }: AudioRecorderProps) {
+export function AudioRecorder({ baseName, onRecorded, showGuide = true, disabled }: AudioRecorderProps) {
   const [supported] = useState(canRecord);
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ export function AudioRecorder({ baseName, onRecorded, disabled }: AudioRecorderP
             <Circle className="rec-dot" />
             <span className="rec-timer">{timer(elapsed)}</span>
             <button className="btn-secondary" onClick={finish}>
-              <Square className="btn-icon-sm" /> Stop and trim
+              <Square className="btn-icon-sm" /> Stop recording
             </button>
             {shared && <span className="recorder-source">capturing {shared}</span>}
           </div>
@@ -197,18 +199,23 @@ export function AudioRecorder({ baseName, onRecorded, disabled }: AudioRecorderP
               Clean up my mic
             </label>
             <span className="recorder-hint">
-              Records your microphone and the agent voice into one file, then drops it straight into
-              the trimmer below.
+              Captures your microphone and the agent voice into one file, ready to trim once you
+              load the JSON.
               {(gains.mic !== 1 || gains.tab !== 1) &&
                 ` Volumes are set to ${Math.round(gains.mic * 100)}% you and ${Math.round(gains.tab * 100)}% agent.`}
             </span>
           </div>
 
+          {showGuide && (
           <div className="recorder-guide">
             <div className="recorder-guide-warn">
               <AlertTriangle className="btn-icon-sm" />
-              When Chrome asks what to share, pick <strong>the agent tab</strong>, not this one. The
-              agent voice is captured from that tab, so choosing anything else records only you.
+              {/* One span, or the flex container turns each text run into its own column. */}
+              <span>
+                When Chrome asks what to share, pick <strong>the agent tab</strong>, not this one.
+                The agent voice is captured from that tab, so choosing anything else records only
+                you.
+              </span>
             </div>
             <ol className="recorder-steps">
               <li>Hit <strong>Record the call</strong>. Chrome opens its share dialog.</li>
@@ -224,11 +231,12 @@ export function AudioRecorder({ baseName, onRecorded, disabled }: AudioRecorderP
                 agent voice in the recording.
               </li>
               <li>
-                Check both meters move once the call starts, then <strong>Stop and trim</strong> when
-                you are done.
+                Check both meters move once the call starts, then <strong>Stop</strong> when the
+                call is over.
               </li>
             </ol>
           </div>
+          )}
         </>
       )}
       {error && <span className="audio-error">{error}</span>}

@@ -24,19 +24,21 @@ It also does the boring parts of the review for you:
 | **Flow Map** | Which agent held the call, for how long, and where it handed off. |
 | **Scenario Check** `beta` | Pick the scenario you are rating and it diffs the calls the model actually made against the ones the guideline expects: matched, missing, extra, and who owned each one. |
 | **Data Fixture** | The context the model was given (accounts, plans, features, technicians, outages, line diagnostics) as searchable tables. Click an argument in the timeline and it jumps to the row it refers to. |
-| **Audio** | Record the call in the browser, or attach a file you captured yourself. Trim it on the waveform and download it as `.m4a` or `.mp3`, named to match the other exports. |
+| **Audio** | Trim the recording on the waveform and download it as `.m4a` or `.mp3`, named to match the other exports. The recording itself is captured on the upload page, before the JSON exists. |
 
 ## Using it
 
 1. **Pick the environment.** Prod Single Agent, Prod Multi Agent or Pre-Prod. This decides which tool structures the parser looks for, and you can override the keywords if a session uses different ones.
 2. **Pick the scenario and gender.** Only needed for the Scenario Check. The list changes with the environment, since single and multi agent are numbered separately.
-3. **Add the JSON.** Drop the file anywhere on the page, browse for it, or paste the raw text.
-4. **Add the recording.** Optional, and optional in both directions: attach the `.mp4`/`.mov` here and it arrives on the next page already loaded, or skip it now and add it in the Audio panel later.
+3. **Record the call**, or attach a file you captured yourself. This comes before the JSON on purpose: the agent only hands the JSON over once the call is finished, so there is nothing to paste until afterwards. It stays optional either way.
+4. **Add the JSON.** Drop the file anywhere on the page, browse for it, or paste the raw text. Whatever recording is sitting in step 1 travels with it.
 5. **Review, then Download All.** JSON, transcript and audio come out with matching names.
 
 ### Recording without OBS
 
-The Audio panel has a **Record the call** button. It captures your microphone and the agent's voice at the same time, mixes them, and drops the result straight into the trimmer, so there is no separate capture app and no mp4 to convert.
+Step 1 of the upload page has a **Record the call** button. It captures your microphone and the agent's voice at the same time, mixes them, and holds the result until you submit the JSON, at which point it lands in the trimmer ready to go. No separate capture app, and no mp4 to convert.
+
+It lives on the upload page rather than next to the trimmer because of the order things happen in: the agent produces the JSON only after the call ends, so a recorder that you could only reach by submitting the JSON first could never record a call at all.
 
 Chrome will ask what to share. **Pick the tab the agent is playing in and turn the audio toggle on.** Without it you get a silent capture, and the app says so rather than recording nothing. The steps are spelled out next to the button.
 
@@ -82,8 +84,9 @@ The two interesting corners:
 
 ```
 src/
-  components/   Dropzone, TimelineView, ScenarioCheck, ReferenceDataPanel, AudioTool
-  utils/        parser.ts, referenceData.ts, audio.ts
+  components/   Dropzone, TimelineView, ScenarioCheck, ReferenceDataPanel,
+                AudioRecorder (upload page), AudioTool (timeline page)
+  utils/        parser.ts, referenceData.ts, audio.ts, recorder.ts
   data/         scenarios.ts   expected tool calls per scenario
   index.css     all of the styling
 ```
