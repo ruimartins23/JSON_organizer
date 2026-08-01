@@ -610,6 +610,18 @@ input, textarea, select {
   color: inherit;
 }
 
+/* Blocked while a recording is running, so the take cannot be lost. */
+.dropzone-area:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dropzone-area:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: none;
+  box-shadow: none;
+}
+
 .dropzone-area:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;

@@ -71,6 +71,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [scenarioNum, setScenarioNum] = useState(1);
   const [scenarioGender, setScenarioGender] = useState<'male' | 'female'>('male');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +103,12 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   };
 
   const processText = (text: string) => {
+    // Loading the JSON leaves this page, which would destroy a recording still
+    // in progress. That recording is a whole session and cannot be redone.
+    if (isRecording) {
+      setError('Stop the recording and let it save first. Loading the JSON now would throw the whole take away.');
+      return;
+    }
     try {
       const json = JSON.parse(text);
       onFileParsed(
@@ -340,6 +347,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             baseName="session-recording"
             onRecorded={setMediaFile}
             showGuide={!mediaFile}
+            onRecordingChange={setIsRecording}
           />
           <input
             ref={mediaInputRef}
@@ -357,6 +365,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
+          disabled={isRecording}
           className={`glass dropzone-area ${isDragging ? 'dragging' : ''}`}
         >
           <div className="dropzone-icon-bg">
@@ -401,8 +410,14 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
             }}
           />
           <div className="paste-actions">
-            <span className="paste-shortcut">{shortcutHint} to process</span>
-            <button className="btn-primary" onClick={handlePasteSubmit} disabled={!pastedText.trim()}>
+            <span className="paste-shortcut">
+              {isRecording ? 'Stop the recording first' : `${shortcutHint} to process`}
+            </span>
+            <button
+              className="btn-primary"
+              onClick={handlePasteSubmit}
+              disabled={!pastedText.trim() || isRecording}
+            >
               <ClipboardPaste className="btn-icon" />
               Process Pasted Text
             </button>
