@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 
 // Bump this key when a new announcement should re-appear for everyone.
-const STORAGE_KEY = 'ai-json-organizer:announcement:call-recording-v1';
+const STORAGE_KEY = 'ai-json-organizer:announcement:record-then-json-v1';
 
 export function Announcement() {
   const [visible, setVisible] = useState(() => {
@@ -32,9 +32,9 @@ export function Announcement() {
       <div className="announcement-body">
         <h3 className="announcement-title">Quick update</h3>
         <p>
-          Hey guys! You can stop using OBS. Open the Audio panel, hit <strong>Record the call</strong>,
-          and it grabs your mic and the agent voice at the same time and drops it straight into the
-          trimmer. There are volume sliders for both if one side is too loud.
+          Hey guys! You can stop using OBS. On this page, hit <strong>Record the call</strong>
+          before you start talking to the agent. When the call is done and you finally get the JSON,
+          paste it in below and the recording is already there waiting to be trimmed.
         </p>
         <p>
           One thing, and it matters: when Chrome asks what to share, pick{' '}
@@ -43,9 +43,8 @@ export function Announcement() {
         </p>
         <p>
           This only works on <strong>Chrome and Edge</strong>. Firefox and Safari cannot record tab
-          audio at all, so on those you still record with OBS like before and load the file yourself,
-          either on the upload page next to the JSON or in the Audio panel. Same if you already have
-          a file lying around. Much love, Rui 💙
+          audio at all, so on those you still record with OBS like before and load the file yourself.
+          Same if you already have a file lying around. Much love, Rui 💙
         </p>
         <div className="announcement-actions">
           <button className="btn-secondary" onClick={dismissForever}>

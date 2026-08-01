@@ -660,7 +660,20 @@ input, textarea, select {
   font-size: 0.95rem;
 }
 
-/* Optional recording slot on the upload page */
+/* Step one on the upload page: capture the call, which happens before the
+   agent produces any JSON to paste. */
+.record-card {
+  padding: 1rem 1.25rem;
+}
+
+.record-card .media-slot {
+  padding: 0;
+}
+
+.record-card .audio-recorder {
+  margin-top: 0.85rem;
+}
+
 .media-slot {
   display: flex;
   align-items: center;

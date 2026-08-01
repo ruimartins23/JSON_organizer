@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck, AudioLines, X } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
+import { AudioRecorder } from './AudioRecorder';
 import { isMac } from '../utils/platform';
 
 export interface ScenarioSelection {
@@ -303,6 +304,56 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
       </div>
 
       <div className="upload-section animate-fade-in">
+        <div className="glass record-card">
+          <div className="media-slot">
+            <div className="media-slot-icon">
+              <AudioLines />
+            </div>
+            <div className="media-slot-body">
+              <div className="media-slot-title">
+                1. Recording <span className="media-slot-optional">optional</span>
+              </div>
+              {mediaFile ? (
+                <span className="media-slot-file">
+                  {mediaFile.name} <span className="media-slot-size">{fileSize(mediaFile.size)}</span>
+                </span>
+              ) : (
+                <span className="media-slot-hint">
+                  Do this first. The agent only hands over the JSON once the call is finished, so
+                  start recording before you begin and paste the JSON below afterwards.
+                </span>
+              )}
+            </div>
+            <div className="media-slot-actions">
+              <button className="btn-secondary" onClick={() => mediaInputRef.current?.click()}>
+                {mediaFile ? 'Change file' : 'Use a file'}
+              </button>
+              {mediaFile && (
+                <button className="icon-btn" title="Remove" onClick={() => setMediaFile(null)}>
+                  <X />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <AudioRecorder
+            baseName="session-recording"
+            onRecorded={setMediaFile}
+            showGuide={!mediaFile}
+          />
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept={MEDIA_ACCEPT}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setMediaFile(file);
+              e.target.value = '';
+            }}
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -311,7 +362,7 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           <div className="dropzone-icon-bg">
             <Upload className="dropzone-icon" />
           </div>
-          <h3 className="dropzone-title">Upload JSON File</h3>
+          <h3 className="dropzone-title">2. Upload JSON File</h3>
           <p className="dropzone-subtitle">
             Drag and drop your .txt or .json file anywhere on this page
           </p>
@@ -358,47 +409,6 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
           </div>
         </div>
 
-        <div className="glass media-slot">
-          <div className="media-slot-icon">
-            <AudioLines />
-          </div>
-          <div className="media-slot-body">
-            <div className="media-slot-title">
-              Recording <span className="media-slot-optional">optional</span>
-            </div>
-            {mediaFile ? (
-              <span className="media-slot-file">
-                {mediaFile.name} <span className="media-slot-size">{fileSize(mediaFile.size)}</span>
-              </span>
-            ) : (
-              <span className="media-slot-hint">
-                Add the .mp4 or .mov now and it will be waiting in the Audio panel, or skip it and
-                upload it there later.
-              </span>
-            )}
-          </div>
-          <div className="media-slot-actions">
-            <button className="btn-secondary" onClick={() => mediaInputRef.current?.click()}>
-              {mediaFile ? 'Change' : 'Add recording'}
-            </button>
-            {mediaFile && (
-              <button className="icon-btn" title="Remove" onClick={() => setMediaFile(null)}>
-                <X />
-              </button>
-            )}
-          </div>
-          <input
-            ref={mediaInputRef}
-            type="file"
-            accept={MEDIA_ACCEPT}
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) setMediaFile(file);
-              e.target.value = '';
-            }}
-          />
-        </div>
       </div>
 
       {isDragging && (
