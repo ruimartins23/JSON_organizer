@@ -26,7 +26,93 @@ export interface OrganizedTimeline {
   rawJsonText?: string;
   hasEnvironmentMismatch?: boolean;
   referenceData?: Record<string, unknown>;
+  /** Things worth knowing about how this transcript was read out of the file. */
+  transcriptNotes?: string[];
   events: ParsedEvent[];
+}
+
+/**
+ * A turn normally ends with an assembled message under diagnosticInfo, and the
+ * streamed sessionOutput.text fragments that built it are ignored as duplicates.
+ * When a session ends abruptly the last turns never get that assembled message,
+ * so reading only the assembled ones drops the end of the conversation. This
+ * works out which turns have to be rebuilt from their fragments instead.
+ */
+interface RebuiltTurn {
+  text: string;
+  /** Whoever was speaking last, since the fragments carry no name of their own. */
+  role: string;
+}
+
+interface StreamRepair {
+  /** Rebuilt turns, keyed by the entry the message should be emitted at. */
+  rebuilt: Map<unknown, RebuiltTurn>;
+  /** recognitionResult entries belonging to a turn no assembled message covers. */
+  keepRecognition: Set<unknown>;
+  turnsRebuilt: number;
+}
+
+function planStreamRepair(data: unknown): StreamRepair {
+  const rebuilt = new Map<unknown, RebuiltTurn>();
+  const keepRecognition = new Set<unknown>();
+  if (!Array.isArray(data)) return { rebuilt, keepRecognition, turnsRebuilt: 0 };
+
+  const covered = new Set<number>();
+  const text = new Map<number, string>();
+  const firstFragment = new Map<number, unknown>();
+  const speakerAt = new Map<number, string>();
+  // How many times each thing the user said already appears in an assembled
+  // message. Counting rather than checking presence keeps a genuine repeat.
+  const alreadyShown = new Map<string, number>();
+  const said = (value: string) => value.replace(/\s+/g, ' ').trim();
+  let lastSpeaker = 'agent';
+
+  for (const entry of data) {
+    const output = entry?.sessionOutput;
+    if (!output || typeof output.turnIndex !== 'number') continue;
+    const turn = output.turnIndex;
+
+    if (output.diagnosticInfo?.messages?.length) {
+      covered.add(turn);
+      output.diagnosticInfo.messages.forEach((message: any) => {
+        const role = typeof message?.role === 'string' ? message.role : '';
+        const spoken = said(
+          (message?.chunks ?? []).map((chunk: any) => chunk?.transcript ?? '').join(''),
+        );
+        if (role.toLowerCase() === 'user') {
+          if (spoken) alreadyShown.set(spoken, (alreadyShown.get(spoken) ?? 0) + 1);
+        } else if (role) {
+          lastSpeaker = role;
+        }
+      });
+    }
+    if (typeof output.text === 'string' && output.text !== '') {
+      text.set(turn, (text.get(turn) ?? '') + output.text);
+      if (!firstFragment.has(turn)) {
+        firstFragment.set(turn, entry);
+        speakerAt.set(turn, lastSpeaker);
+      }
+    }
+  }
+
+  // Keep any user turn the assembled messages did not already account for.
+  for (const entry of data) {
+    const spoken = entry?.recognitionResult?.transcript;
+    if (typeof spoken !== 'string' || spoken.trim() === '') continue;
+    const key = said(spoken);
+    const remaining = alreadyShown.get(key) ?? 0;
+    if (remaining > 0) alreadyShown.set(key, remaining - 1);
+    else keepRecognition.add(entry);
+  }
+
+  firstFragment.forEach((entry, turn) => {
+    const joined = text.get(turn) ?? '';
+    if (!covered.has(turn) && joined.trim() !== '') {
+      rebuilt.set(entry, { text: joined, role: speakerAt.get(turn) ?? 'agent' });
+    }
+  });
+
+  return { rebuilt, keepRecognition, turnsRebuilt: rebuilt.size };
 }
 
 // Values in defaultVariables are often stringified JSON; parse them when possible.
@@ -73,6 +159,9 @@ export function parseAITrainingJSON(
   // Check if this JSON has the new diagnosticInfo chunks format
   const stringifiedData = JSON.stringify(data);
   const hasDiagnosticMessages = stringifiedData.includes('"diagnosticInfo"') && stringifiedData.includes('"chunks"');
+  const repair = hasDiagnosticMessages
+    ? planStreamRepair(data)
+    : { rebuilt: new Map<unknown, RebuiltTurn>(), keepRecognition: new Set<unknown>(), turnsRebuilt: 0 };
 
   // Attempt to extract session ID from agent-turn URIs
   const sessionMatch = stringifiedData.match(/\/([^/]+)\/agent-turn/);
@@ -306,6 +395,15 @@ export function parseAITrainingJSON(
       if (typeof obj.transcript === 'string' && structuralKey === 'chunks') {
         role = currentAgent || 'user';
         content = obj.transcript;
+      } else if (repair.rebuilt.has(obj)) {
+        // A turn that never got its assembled message, put back together from
+        // the streamed fragments so the conversation does not just stop.
+        const turn = repair.rebuilt.get(obj)!;
+        role = turn.role;
+        content = turn.text;
+      } else if (repair.keepRecognition.has(obj) && typeof obj.recognitionResult?.transcript === 'string') {
+        role = 'user';
+        content = obj.recognitionResult.transcript;
       }
     } else {
       // Legacy format fallback
@@ -440,7 +538,64 @@ export function parseAITrainingJSON(
     duration: durationStr,
     hasEnvironmentMismatch,
     referenceData: Object.keys(referenceData).length > 0 ? referenceData : undefined,
+    transcriptNotes: checkTranscript(data, finalEvents, repair),
     rawJsonText: JSON.stringify(data, null, 2),
     events: finalEvents
   };
+}
+
+/**
+ * Compares what ended up in the transcript against what the file actually
+ * contains, so a session written in an unexpected shape is called out rather
+ * than quietly coming out short.
+ */
+function checkTranscript(
+  data: unknown,
+  events: ParsedEvent[],
+  repair: StreamRepair,
+): string[] | undefined {
+  const notes: string[] = [];
+
+  if (repair.turnsRebuilt > 0) {
+    notes.push(
+      `${repair.turnsRebuilt} agent ${repair.turnsRebuilt === 1 ? 'turn' : 'turns'} never got written ` +
+        'out in full by the agent, so they were rebuilt from the streamed pieces. Worth reading those ' +
+        'against the agent interface before you rate them.',
+    );
+  }
+
+  if (Array.isArray(data)) {
+    const spoken = events.filter(e => e.type === 'message');
+    const shown = new Set(spoken.map(e => (e.messageContent ?? '').replace(/\s+/g, ' ').trim()));
+
+    // Every user turn in the file should appear somewhere in the transcript.
+    const missingUser = data.filter(entry => {
+      const said = entry?.recognitionResult?.transcript;
+      if (typeof said !== 'string' || said.trim() === '') return false;
+      const normalised = said.replace(/\s+/g, ' ').trim();
+      return ![...shown].some(text => text.includes(normalised));
+    }).length;
+
+    if (missingUser > 0) {
+      notes.push(
+        `${missingUser} thing${missingUser === 1 ? '' : 's'} the user said ${missingUser === 1 ? 'is' : 'are'} ` +
+          'in the file but not in the transcript below. Check the agent interface, the transcript here may be short.',
+      );
+    }
+
+    const turns = new Set<number>();
+    data.forEach(entry => {
+      const turn = entry?.sessionOutput?.turnIndex;
+      if (typeof turn === 'number') turns.add(turn);
+    });
+    const agentTurns = spoken.filter(e => (e.messageRole ?? '').toLowerCase() !== 'user').length;
+    if (turns.size > 0 && agentTurns < turns.size) {
+      notes.push(
+        `The file has ${turns.size} agent turns but only ${agentTurns} came through. ` +
+          'Some of what the agent said is probably missing here.',
+      );
+    }
+  }
+
+  return notes.length > 0 ? notes : undefined;
 }

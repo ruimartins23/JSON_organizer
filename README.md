@@ -44,7 +44,7 @@ Chrome will ask what to share. **Pick the tab the agent is playing in and turn t
 
 While recording you get a timer, a live meter per channel, and a volume slider per channel that takes effect immediately, so a side that is too loud can be fixed during the call rather than after it. The meter reads after the slider, so it shows what is actually being recorded.
 
-The take is written to IndexedDB as it is captured, a chunk at a time. If the tab is closed, refreshed or crashes mid-call, the next visit offers it back rather than losing a session that cannot be redone. The copy is dropped once the JSON is loaded and the recording has travelled onward with it.
+The take is written to IndexedDB as it is captured, a chunk at a time. If the tab is closed, refreshed or crashes, the next visit offers it back rather than losing a session that cannot be redone. That holds after the JSON is loaded too, since a refresh on the timeline page would otherwise take the audio with it. The copy is dropped once the audio has been downloaded and exists as a real file, or when a new take replaces it.
 
 On macOS, only the **Chrome Tab** pane of the share dialog carries audio at all: Entire Screen and Window have no system audio to offer, which is why people reach for BlackHole or Loopback. On Windows, Entire Screen also works if you tick "share system audio". The in-app wording adapts to the platform.
 
@@ -81,6 +81,7 @@ React 19 + TypeScript on Vite, and that is about it. There is no server and no d
 The two interesting corners:
 
 - **Parsing.** `src/utils/parser.ts` walks the JSON without assuming a fixed shape, since the dumps differ between environments. Timing is the fiddly part: transcript events carry `eventTime`, but tool calls are trace spans whose time lives in `startTime`, and missing that puts calls in the wrong order everywhere downstream.
+- **Half-written transcripts.** A turn normally ends with an assembled message under `diagnosticInfo`, and the streamed `sessionOutput.text` fragments that built it are skipped as duplicates. A session that ends abruptly never emits that assembled message for its last turns, so reading only the assembled ones silently drops the end of the conversation. Those turns are rebuilt from their fragments, and anything still unaccounted for is called out in a banner instead of quietly going missing.
 - **Audio.** All in the browser. `AudioContext` decodes whatever the file is, `AudioEncoder` plus `mp4-muxer` writes the `.m4a`, and `lamejs` writes the `.mp3` because browsers have no native MP3 encoder. Encoding runs at download time, not before, so re-trimming can never hand you a stale clip.
 - **Recording.** `src/utils/recorder.ts` joins `getUserMedia` (mic) and `getDisplayMedia` (tab) into one Web Audio graph and records the mix with `MediaRecorder`. The result is just a `File`, so it enters the same decode-and-trim path as an uploaded one. Two quirks worth knowing: Chrome only offers the audio checkbox when video is requested too, and stopping that unused video track would end the whole share, so it is kept alive and ignored.
 - **Not losing a take.** `src/utils/recordingStore.ts` mirrors each chunk into IndexedDB while recording. Every call there is best effort and its errors are swallowed on purpose: storage failing must never be able to break a capture that is already running.

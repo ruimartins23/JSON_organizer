@@ -5,6 +5,7 @@ import { ReferenceDataPanel } from './ReferenceDataPanel';
 import { ScenarioCheck } from './ScenarioCheck';
 import { AudioTool } from './AudioTool';
 import type { AudioFormat } from '../utils/audio';
+import { clearStoredRecording } from '../utils/recordingStore';
 import { findFixtureMatch } from '../utils/referenceData';
 import type { FixtureFocus } from '../utils/referenceData';
 import {
@@ -369,6 +370,8 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      // The take is on disk as a real file now, so the safety copy can go.
+      void clearStoredRecording().catch(() => {});
     } finally {
       setAudioProgress(null);
     }
@@ -468,6 +471,18 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
         onFormatChange={setAudioFormat}
         onEncoderChange={setAudioEncoder}
       />
+
+      {data.transcriptNotes && data.transcriptNotes.length > 0 && (
+        <div className="glass warning-banner">
+          <AlertTriangle className="icon" />
+          <div>
+            <h3>Check this transcript</h3>
+            {data.transcriptNotes.map(note => (
+              <p key={note}>{note}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data.hasEnvironmentMismatch && (
         <div className="glass warning-banner">
