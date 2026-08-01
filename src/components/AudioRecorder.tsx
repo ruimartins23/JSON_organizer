@@ -11,7 +11,8 @@ interface AudioRecorderProps {
   onRecorded: (file: File) => void;
   /** Hidden once a recording exists, since the steps have served their purpose. */
   showGuide?: boolean;
-  disabled?: boolean;
+  /** Lets the page block anything that would discard a recording in progress. */
+  onRecordingChange?: (recording: boolean) => void;
 }
 
 type State = 'idle' | 'starting' | 'recording' | 'saving';
@@ -61,7 +62,12 @@ function Channel({ label, level, gain, onGain, silent }: ChannelProps) {
   );
 }
 
-export function AudioRecorder({ baseName, onRecorded, showGuide = true, disabled }: AudioRecorderProps) {
+export function AudioRecorder({
+  baseName,
+  onRecorded,
+  showGuide = true,
+  onRecordingChange,
+}: AudioRecorderProps) {
   const [supported] = useState(canRecord);
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -104,13 +110,15 @@ export function AudioRecorder({ baseName, onRecorded, showGuide = true, disabled
     recordingRef.current?.stop().catch(() => {});
   }, []);
 
-  // Leaving mid-call would throw the recording away.
+  // Leaving mid-call would throw the recording away, and so would leaving while
+  // the blob is still being assembled after the stop.
   useEffect(() => {
+    onRecordingChange?.(state === 'recording' || state === 'saving');
     if (state !== 'recording') return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [state]);
+  }, [state, onRecordingChange]);
 
   const begin = async () => {
     setError(null);
@@ -145,7 +153,7 @@ export function AudioRecorder({ baseName, onRecorded, showGuide = true, disabled
   if (!supported) {
     return (
       <p className="recorder-unsupported">
-        Recording needs Chrome or Edge. In this browser, capture with OBS and load the file above.
+        Recording needs Chrome or Edge. In this browser, capture with OBS and add it with Use a file.
       </p>
     );
   }
@@ -190,7 +198,7 @@ export function AudioRecorder({ baseName, onRecorded, showGuide = true, disabled
       ) : (
         <>
           <div className="recorder-status">
-            <button className="btn-secondary" onClick={begin} disabled={disabled || state !== 'idle'}>
+            <button className="btn-secondary" onClick={begin} disabled={state !== 'idle'}>
               <Mic className="btn-icon-sm" />
               {state === 'starting' ? 'Waiting for the share…' : state === 'saving' ? 'Saving…' : 'Record the call'}
             </button>
