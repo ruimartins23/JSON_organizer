@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck, AudioLines, X } from 'lucide-react';
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
+import { isMac } from '../utils/platform';
 
 export interface ScenarioSelection {
   num: number;
@@ -25,7 +26,7 @@ function isMediaFile(file: File): boolean {
   return /\.(mp4|mov|m4v|webm|mkv|m4a|mp3|wav|aac|ogg)$/i.test(file.name);
 }
 
-const shortcutHint = navigator.platform.toLowerCase().includes('mac') ? '⌘ + Enter' : 'Ctrl + Enter';
+const shortcutHint = isMac ? '⌘ + Enter' : 'Ctrl + Enter';
 
 function fileSize(bytes: number): string {
   const mb = bytes / (1024 * 1024);
