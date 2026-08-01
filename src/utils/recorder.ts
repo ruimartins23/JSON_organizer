@@ -5,6 +5,7 @@
  */
 
 import { isMac } from './platform';
+import { appendChunk, beginStoredRecording } from './recordingStore';
 
 export type RecorderErrorCode = 'unsupported' | 'cancelled' | 'no-tab-audio' | 'no-mic' | 'empty';
 
@@ -132,9 +133,18 @@ export async function startRecording({ cleanMic, baseName, gains }: RecordOption
     destination.stream,
     mimeType ? { mimeType, audioBitsPerSecond: 128_000 } : undefined,
   );
+  const recordedType = recorder.mimeType || mimeType || 'audio/webm';
+  const fileName = `${baseName}.${recordedType.includes('mp4') ? 'mp4' : 'webm'}`;
+
+  // Mirror every chunk to disk as it arrives. If the tab dies mid-call the take
+  // is still recoverable; if storage refuses, the recording carries on in memory.
+  void beginStoredRecording(fileName, recordedType).catch(() => {});
+
   const chunks: Blob[] = [];
   recorder.ondataavailable = event => {
-    if (event.data.size > 0) chunks.push(event.data);
+    if (event.data.size === 0) return;
+    chunks.push(event.data);
+    void appendChunk(event.data).catch(() => {});
   };
   recorder.start(1000);
 
@@ -185,13 +195,11 @@ export async function startRecording({ cleanMic, baseName, gains }: RecordOption
 
         const finalize = () => {
           release();
-          const type = recorder.mimeType || mimeType || 'audio/webm';
           if (chunks.length === 0) {
             reject(new RecorderError('empty', 'Nothing was captured, so there is no file to trim.'));
             return;
           }
-          const extension = type.includes('mp4') ? 'mp4' : 'webm';
-          resolve(new File([new Blob(chunks, { type })], `${baseName}.${extension}`, { type }));
+          resolve(new File([new Blob(chunks, { type: recordedType })], fileName, { type: recordedType }));
         };
 
         if (recorder.state === 'inactive') {

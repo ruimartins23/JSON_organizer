@@ -3,6 +3,7 @@ import { Upload, FileJson, ClipboardPaste, Settings2, ClipboardCheck, AudioLines
 import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
 import { AudioRecorder } from './AudioRecorder';
+import { clearStoredRecording } from '../utils/recordingStore';
 import { isMac } from '../utils/platform';
 
 export interface ScenarioSelection {
@@ -118,6 +119,8 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
         { num: activeScenario, gender: scenarioGender },
         mediaFile,
       );
+      // The take has been carried into the session, so the safety copy can go.
+      void clearStoredRecording().catch(() => {});
       setError(null);
     } catch (err: any) {
       console.error(err);

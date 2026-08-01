@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Square, Circle, AlertTriangle } from 'lucide-react';
 import { canRecord, startRecording, RecorderError } from '../utils/recorder';
+import { clearStoredRecording, loadStoredRecording } from '../utils/recordingStore';
+import type { StoredRecording } from '../utils/recordingStore';
 import { isMac } from '../utils/platform';
 import type { ActiveRecording, Levels } from '../utils/recorder';
 
@@ -19,6 +21,20 @@ type State = 'idle' | 'starting' | 'recording' | 'saving';
 
 /** A channel that never moved is a channel that is not being captured. */
 const SILENCE_GRACE_SECONDS = 8;
+
+/** "4 minutes ago", near enough to recognise which take it is. */
+function ago(timestamp: number): string {
+  const minutes = Math.round((Date.now() - timestamp) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+}
+
+function megabytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 0.1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 function timer(seconds: number): string {
   const whole = Math.floor(seconds);
@@ -77,6 +93,7 @@ export function AudioRecorder({
   const [cleanMic, setCleanMic] = useState(true);
   // Kept between takes, so a setup that worked once does not need redoing.
   const [gains, setGains] = useState<Levels>({ mic: 1, tab: 1 });
+  const [orphan, setOrphan] = useState<StoredRecording | null>(null);
 
   const recordingRef = useRef<ActiveRecording | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -110,6 +127,11 @@ export function AudioRecorder({
     recordingRef.current?.stop().catch(() => {});
   }, []);
 
+  // A take left on disk means the page died before it was handed over.
+  useEffect(() => {
+    loadStoredRecording().then(setOrphan).catch(() => {});
+  }, []);
+
   // Leaving mid-call would throw the recording away, and so would leaving while
   // the blob is still being assembled after the stop.
   useEffect(() => {
@@ -126,6 +148,8 @@ export function AudioRecorder({
     peaksRef.current = { mic: 0, tab: 0 };
     try {
       const recording = await startRecording({ cleanMic, baseName, gains });
+      // The new take has replaced whatever was stored.
+      setOrphan(null);
       recordingRef.current = recording;
       setShared(recording.sharedLabel);
       recording.onExternalStop(() => finishRef.current());
@@ -197,6 +221,32 @@ export function AudioRecorder({
         </>
       ) : (
         <>
+          {orphan && (
+            <div className="recorder-recovered">
+              <span>
+                A recording from <strong>{ago(orphan.savedAt)}</strong> was left unfinished
+                ({megabytes(orphan.file.size)}). It is still here.
+              </span>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  onRecorded(orphan.file);
+                  setOrphan(null);
+                }}
+              >
+                Recover it
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  void clearStoredRecording().catch(() => {});
+                  setOrphan(null);
+                }}
+              >
+                Discard
+              </button>
+            </div>
+          )}
           <div className="recorder-status">
             <button className="btn-secondary" onClick={begin} disabled={state !== 'idle'}>
               <Mic className="btn-icon-sm" />
