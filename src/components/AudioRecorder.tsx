@@ -293,6 +293,13 @@ export function AudioRecorder({
                 call is over.
               </li>
             </ol>
+            <p className="recorder-tip">
+              Coming out muffled or thin? It records whichever microphone your system has selected,
+              which is not always the best one you own, so check your sound settings first. On
+              headphones there is no echo to cancel either, so if your voice sounds over-processed
+              you can safely untick <strong>Clean up my mic</strong>. Leave it on if you type notes
+              during the call or the room is noisy.
+            </p>
           </div>
           )}
         </>

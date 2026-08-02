@@ -2234,6 +2234,15 @@ input, textarea, select {
 
 .recorder-steps strong { color: var(--text-secondary); }
 
+.recorder-tip {
+  margin: 0;
+  padding-top: 0.55rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.07);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .recorder-source {
   font-size: 0.75rem;
   color: var(--text-muted);
