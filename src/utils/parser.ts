@@ -115,6 +115,34 @@ function planStreamRepair(data: unknown): StreamRepair {
   return { rebuilt, keepRecognition, turnsRebuilt: rebuilt.size };
 }
 
+/**
+ * end_session has only really landed when the tool answers `result: "done"`.
+ * The same call also shows up mid-flight with no response, or answering in
+ * some other shape, and those look identical in the timeline otherwise.
+ */
+export function endSessionIssue(event: ParsedEvent): string | null {
+  if (event.type !== 'endsession') return null;
+
+  const response = event.response;
+  const isEmpty =
+    response === undefined ||
+    response === null ||
+    response === '' ||
+    (typeof response === 'object' && Object.keys(response).length === 0);
+  if (isEmpty) return 'came back with no response at all';
+
+  // Only a result field counts. A bare "done", which is what a response: "done"
+  // collapses to, is the exact case this is here to catch.
+  const result =
+    typeof response === 'object' && response !== null
+      ? (response as Record<string, unknown>).result
+      : undefined;
+  if (typeof result === 'string' && result.trim().toLowerCase() === 'done') return null;
+
+  const shown = JSON.stringify(response);
+  return `did not return result: done${shown && shown.length <= 60 ? ` (got ${shown})` : ''}`;
+}
+
 // Values in defaultVariables are often stringified JSON; parse them when possible.
 function maybeParseJSON(value: unknown): unknown {
   if (typeof value === 'string') {
