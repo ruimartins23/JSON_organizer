@@ -18,7 +18,7 @@ It also does the boring parts of the review for you:
 
 | | |
 |---|---|
-| **Timeline** | Every event in true chronological order, colour-coded by agent, filterable, with tool arguments and responses expanded inline. |
+| **Timeline** | Every event in true chronological order, colour-coded by agent, filterable, with tool arguments and responses expanded inline. An `end_session` that did not come back with `result: done` is flagged, since the failed and the real one look identical otherwise. |
 | **Function & Transfer Summary** | The copy-paste block for your sheet. Mark each call correct or incorrect with the ✓ / ✗ and the summary updates itself. |
 | **Transcript** | Clean speaker-by-speaker text, ready to copy. |
 | **Flow Map** | Which agent held the call, for how long, and where it handed off. |

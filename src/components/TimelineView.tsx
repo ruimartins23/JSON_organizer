@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import type { CSSProperties } from 'react';
+import { endSessionIssue } from '../utils/parser';
 import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
 import { ReferenceDataPanel } from './ReferenceDataPanel';
 import { ScenarioCheck } from './ScenarioCheck';
@@ -852,6 +853,12 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
             )}
             {event.duplicateCount && event.duplicateCount > 1 && (
               <span className="tool-line-count">({event.duplicateCount}x)</span>
+            )}
+            {endSessionIssue(event) && (
+              <span className="tool-line-warn" title={`end_session ${endSessionIssue(event)}`}>
+                <AlertTriangle className="btn-icon-sm" />
+                executed without a valid response
+              </span>
             )}
             {reviewStatus && (
               <span className={`tool-review-suffix ${reviewStatus}`}>
