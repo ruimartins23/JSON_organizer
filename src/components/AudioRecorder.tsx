@@ -19,6 +19,8 @@ interface AudioRecorderProps {
 
 type State = 'idle' | 'starting' | 'recording' | 'saving';
 
+const STEPS_KEY = 'ai-json-organizer:recorder-steps';
+
 /** A channel that never moved is a channel that is not being captured. */
 const SILENCE_GRACE_SECONDS = 8;
 
@@ -94,6 +96,14 @@ export function AudioRecorder({
   // Kept between takes, so a setup that worked once does not need redoing.
   const [gains, setGains] = useState<Levels>({ mic: 1, tab: 1 });
   const [orphan, setOrphan] = useState<StoredRecording | null>(null);
+  // Read once, then in the way. Hidden only if the user asks, and remembered.
+  const [showSteps, setShowSteps] = useState(() => {
+    try {
+      return localStorage.getItem(STEPS_KEY) !== 'hidden';
+    } catch {
+      return true;
+    }
+  });
 
   const recordingRef = useRef<ActiveRecording | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -182,6 +192,16 @@ export function AudioRecorder({
     );
   }
 
+  const toggleSteps = () => {
+    const next = !showSteps;
+    setShowSteps(next);
+    try {
+      localStorage.setItem(STEPS_KEY, next ? 'shown' : 'hidden');
+    } catch {
+      // Preference is a nicety, not worth failing over.
+    }
+  };
+
   const changeGain = (source: keyof Levels, value: number) => {
     setGains(current => ({ ...current, [source]: value }));
     recordingRef.current?.setGain(source, value);
@@ -248,7 +268,7 @@ export function AudioRecorder({
             </div>
           )}
           <div className="recorder-status">
-            <button className="btn-secondary" onClick={begin} disabled={state !== 'idle'}>
+            <button className="btn-primary" onClick={begin} disabled={state !== 'idle'}>
               <Mic className="btn-icon-sm" />
               {state === 'starting' ? 'Waiting for the share…' : state === 'saving' ? 'Saving…' : 'Record the call'}
             </button>
@@ -256,6 +276,9 @@ export function AudioRecorder({
               <input type="checkbox" checked={cleanMic} onChange={e => setCleanMic(e.target.checked)} />
               Clean up my mic
             </label>
+            <button className="link-btn" onClick={toggleSteps}>
+              {showSteps ? 'Hide the steps' : 'How does this work?'}
+            </button>
             <span className="recorder-hint">
               Captures your microphone and the agent voice into one file, ready to trim once you
               load the JSON.
@@ -264,7 +287,7 @@ export function AudioRecorder({
             </span>
           </div>
 
-          {showGuide && (
+          {showGuide && showSteps && (
           <div className="recorder-guide">
             <div className="recorder-guide-warn">
               <AlertTriangle className="btn-icon-sm" />
@@ -294,11 +317,8 @@ export function AudioRecorder({
               </li>
             </ol>
             <p className="recorder-tip">
-              Coming out muffled or thin? It records whichever microphone your system has selected,
-              which is not always the best one you own, so check your sound settings first. On
-              headphones there is no echo to cancel either, so if your voice sounds over-processed
-              you can safely untick <strong>Clean up my mic</strong>. Leave it on if you type notes
-              during the call or the room is noisy.
+              Sounding muffled? Make sure your best microphone is the one selected in your system
+              sound settings.
             </p>
           </div>
           )}

@@ -1,4 +1,3 @@
-const fs = require('fs');
 
 function parseAITrainingJSON(data, mode) {
   const events = [];

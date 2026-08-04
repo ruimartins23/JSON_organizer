@@ -109,7 +109,47 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     tick();
   }, [buffer, start, end, stopPlayback]);
 
-  const preview = () => (playing ? stopPlayback() : playFrom(cursor));
+  /** Plays the kept part. Restarts from the beginning of it once at the end. */
+  const playSelection = () => {
+    if (playing) return stopPlayback();
+    const from = cursor >= end - 0.05 || cursor < start ? start : cursor;
+    playFrom(from);
+  };
+
+  /** Puts a boundary exactly where the playhead is, which is where the ear found it. */
+  const cutAt = (which: 'start' | 'end') => {
+    const at = playhead ?? cursor;
+    if (which === 'start') {
+      const next = Math.max(0, Math.min(at, end - 0.2));
+      setStart(next);
+      setCursor(c => Math.max(c, next));
+    } else {
+      const next = Math.min(duration, Math.max(at, start + 0.2));
+      setEnd(next);
+      setCursor(c => Math.min(c, next));
+    }
+    if (playing) stopPlayback();
+  };
+
+  const resetTrim = () => {
+    setStart(0);
+    setEnd(duration);
+    setCursor(0);
+    stopPlayback();
+  };
+
+  const onKeys = (e: React.KeyboardEvent) => {
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      playSelection();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      const step = e.shiftKey ? 5 : 1;
+      const at = (playhead ?? cursor) + (e.key === 'ArrowLeft' ? -step : step);
+      if (playing) stopPlayback();
+      setCursor(Math.min(Math.max(at, start), end));
+    }
+  };
 
   // Publish an encoder that always reflects the current file, trim and format,
   // so downloading can never hand back a stale clip.
@@ -125,12 +165,21 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * duration;
   };
 
+  /** Capture can throw if the pointer is already gone; never let that kill the drag. */
+  const capture = (pointerId: number) => {
+    try {
+      trackRef.current?.setPointerCapture(pointerId);
+    } catch {
+      // Dragging still works through the track's own handlers.
+    }
+  };
+
   const beginDrag = (kind: Drag) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Capture on the track, which owns the move/up handlers.
-    trackRef.current?.setPointerCapture(e.pointerId);
     dragRef.current = kind;
+    // Capture on the track, which owns the move/up handlers.
+    capture(e.pointerId);
   };
 
   const onTrackMove = (e: React.PointerEvent) => {
@@ -154,12 +203,14 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     dragRef.current = null;
   };
 
-  /** Clicking the waveform moves the play cursor. */
+  /** Clicking the waveform moves the playhead. Seek first, capture after, so a
+   *  refused capture cannot swallow the click. */
   const seekTo = (e: React.PointerEvent) => {
     if (!buffer) return;
-    trackRef.current?.setPointerCapture(e.pointerId);
-    dragRef.current = 'cursor';
     setCursor(Math.min(Math.max(timeAt(e.clientX), start), end));
+    if (playing) stopPlayback();
+    dragRef.current = 'cursor';
+    capture(e.pointerId);
   };
 
   const nudge = (which: 'start' | 'end', delta: number) => {
@@ -204,7 +255,7 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
           <h3 className="panel-title">Audio</h3>
           <span className="reference-subtitle">
             {buffer
-              ? `${sourceName} — ${formatClock(trimmed)} selected`
+              ? `${sourceName}, ${formatClock(trimmed)} selected`
               : 'Trim the recording and save it as .m4a or .mp3'}
           </span>
         </div>
@@ -241,9 +292,26 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
 
           {buffer && (
             <>
+              <div className="audio-transport">
+                <button className="btn-primary transport-play" onClick={playSelection}>
+                  {playing ? <Pause className="btn-icon" /> : <Play className="btn-icon" />}
+                  {playing ? 'Pause' : 'Play selection'}
+                </button>
+                <span className="transport-time">{preciseClock(cursorAt)}</span>
+                <span className="transport-keep">
+                  <Scissors className="btn-icon-sm" />
+                  Keeping <strong>{formatClock(trimmed)}</strong> of {formatClock(duration)}
+                </span>
+                <button className="btn-secondary" onClick={resetTrim}>
+                  <RotateCcw className="btn-icon-sm" /> Reset
+                </button>
+              </div>
+
               <div
                 className="audio-track"
                 ref={trackRef}
+                tabIndex={0}
+                onKeyDown={onKeys}
                 onPointerMove={onTrackMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
@@ -262,51 +330,51 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
                   <span className="audio-cursor-grip" />
                 </div>
 
-                <div className="audio-handle start" style={{ left: `${pct(start)}%` }} onPointerDown={beginDrag('start')}>
+                <div
+                  className="audio-handle start"
+                  style={{ left: `${pct(start)}%` }}
+                  onPointerDown={beginDrag('start')}
+                  title="Drag to move the start"
+                >
                   <span className="audio-handle-bar" />
                 </div>
-                <div className="audio-handle end" style={{ left: `${pct(end)}%` }} onPointerDown={beginDrag('end')}>
+                <div
+                  className="audio-handle end"
+                  style={{ left: `${pct(end)}%` }}
+                  onPointerDown={beginDrag('end')}
+                  title="Drag to move the end"
+                >
                   <span className="audio-handle-bar" />
                 </div>
               </div>
 
-              <div className="audio-readout">
-                <div className="audio-field">
+              <p className="trim-help">
+                Click the wave to move the yellow playhead, then cut at exactly that point with the
+                buttons below. Space plays and pauses, arrow keys step it along.
+              </p>
+
+              <div className="trim-rows">
+                <div className="trim-side">
                   <span className="field-label">Start</span>
-                  <div className="audio-stepper">
-                    <button className="btn-secondary" onClick={() => nudge('start', -1)}>−1s</button>
-                    <span className="audio-time">{preciseClock(start)}</span>
-                    <button className="btn-secondary" onClick={() => nudge('start', 1)}>+1s</button>
-                  </div>
+                  <span className="trim-time">{preciseClock(start)}</span>
+                  <button className="btn-secondary" onClick={() => nudge('start', -1)} title="One second earlier">−1s</button>
+                  <button className="btn-secondary" onClick={() => nudge('start', 1)} title="One second later">+1s</button>
+                  <button className="btn-secondary snap" onClick={() => cutAt('start')}>
+                    Cut start at playhead
+                  </button>
                 </div>
-                <div className="audio-field center">
-                  <span className="field-label">Play cursor</span>
-                  <span className="audio-time strong">{preciseClock(cursorAt)}</span>
-                </div>
-                <div className="audio-field right">
+                <div className="trim-side">
                   <span className="field-label">End</span>
-                  <div className="audio-stepper">
-                    <button className="btn-secondary" onClick={() => nudge('end', -1)}>−1s</button>
-                    <span className="audio-time">{preciseClock(end)}</span>
-                    <button className="btn-secondary" onClick={() => nudge('end', 1)}>+1s</button>
-                  </div>
+                  <span className="trim-time">{preciseClock(end)}</span>
+                  <button className="btn-secondary" onClick={() => nudge('end', -1)} title="One second earlier">−1s</button>
+                  <button className="btn-secondary" onClick={() => nudge('end', 1)} title="One second later">+1s</button>
+                  <button className="btn-secondary snap" onClick={() => cutAt('end')}>
+                    Cut end at playhead
+                  </button>
                 </div>
               </div>
 
-              <div className="audio-actions">
-                <button className="btn-secondary" onClick={preview}>
-                  {playing ? <Pause className="btn-icon-sm" /> : <Play className="btn-icon-sm" />}
-                  {playing ? 'Stop' : 'Play from cursor'}
-                </button>
-                <button className="btn-secondary" onClick={() => setCursor(start)}>Cursor to start</button>
-                <button className="btn-secondary" onClick={() => { setStart(0); setEnd(duration); setCursor(0); }}>
-                  <RotateCcw className="btn-icon-sm" /> Reset trim
-                </button>
-                <span className="audio-note">
-                  <Scissors className="btn-icon-sm" /> {formatClock(trimmed)} of {formatClock(duration)} will be
-                  saved as {fileName} when you download.
-                </span>
-              </div>
+              <p className="audio-note">Saved as {fileName} when you download.</p>
             </>
           )}
         </div>

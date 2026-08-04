@@ -210,7 +210,7 @@ export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProp
               <div className={`scenario-verdict ${allPresent ? 'ok' : 'warn'}`}>
                 {allPresent
                   ? `All ${total} expected function${total > 1 ? 's were' : ' was'} called.`
-                  : `${matched}/${total} expected functions found — ${total - matched} missing.`}
+                  : `${matched} of ${total} expected functions found, ${total - matched} missing.`}
                 {extras.length > 0 && ` ${extras.length} extra call${extras.length > 1 ? 's' : ''} not in the expected set.`}
               </div>
 
@@ -242,7 +242,7 @@ export function ScenarioCheck({ agentType, events, scenario }: ScenarioCheckProp
                 <div>
                   <div className="scenario-col-title">Extra calls ({extras.length})</div>
                   {extras.length === 0 ? (
-                    <div className="scenario-none">None — nothing was called beyond the expected set.</div>
+                    <div className="scenario-none">None. Nothing was called beyond the expected set.</div>
                   ) : (
                     <ul className="scenario-list">
                       {extras.map((e, i) => (

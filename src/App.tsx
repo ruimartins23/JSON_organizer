@@ -13,22 +13,56 @@ function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
   const [scenario, setScenario] = useState<ScenarioSelection>({ num: 1, gender: 'male' });
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  // Kept so the same file can be read again under a different environment.
+  const [source, setSource] = useState<{ data: unknown; config: ParserConfig } | null>(null);
 
+  /** Returns a reason to stay put, or null when the session opened. */
   const handleFileParsed = (
     data: unknown,
     mode: EnvironmentMode,
     config: ParserConfig,
     selectedScenario: ScenarioSelection,
     media: File | null,
-  ) => {
+  ): string | null => {
+    const parsed = parseAITrainingJSON(data, mode, config);
+    // Valid JSON with nothing in it is almost always the wrong file or the wrong
+    // environment. An empty results page would just look broken.
+    if (parsed.events.length === 0) {
+      return 'That file parsed fine but no conversation or tool calls were found in it. Check the environment above matches the session, and that this is the full JSON.';
+    }
     setScenario(selectedScenario);
     setMediaFile(media);
-    setTimelineData(parseAITrainingJSON(data, mode, config));
+    setSource({ data, config });
+    setTimelineData(parsed);
+    return null;
+  };
+
+  /** Reads the file already loaded again, so a wrong setting is fixable in place. */
+  const reparse = (mode: EnvironmentMode, config: ParserConfig) => {
+    if (!source) return;
+    setSource({ data: source.data, config });
+    setTimelineData(parseAITrainingJSON(source.data, mode, config));
+  };
+
+  const changeMode = (mode: EnvironmentMode) => {
+    if (!source) return;
+    const config = { ...source.config };
+    // Pre-prod names its tool calls differently. Only swap a keyword still left
+    // at one of the defaults, so anything hand-typed survives the switch.
+    if (config.functionKeyword === 'toolCall' || config.functionKeyword === 'PythonFunctionTool') {
+      config.functionKeyword = mode === 'pre-prod' ? 'toolCall' : 'PythonFunctionTool';
+    }
+    reparse(mode, config);
+  };
+
+  const changeConfig = (config: ParserConfig) => {
+    if (timelineData) reparse(timelineData.agentType, config);
   };
 
   const reset = () => {
     setTimelineData(null);
     setMediaFile(null);
+    setSource(null);
   };
 
   return (
@@ -52,7 +86,15 @@ function App() {
         {!timelineData ? (
           <Dropzone onFileParsed={handleFileParsed} />
         ) : (
-          <TimelineView data={timelineData} onReset={reset} scenario={scenario} mediaFile={mediaFile} />
+          <TimelineView
+            data={timelineData}
+            onReset={reset}
+            onModeChange={changeMode}
+            config={source?.config}
+            onConfigChange={changeConfig}
+            scenario={scenario}
+            mediaFile={mediaFile}
+          />
         )}
       </main>
       

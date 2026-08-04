@@ -4,6 +4,7 @@ import type { EnvironmentMode, ParserConfig } from '../utils/parser';
 import { SCENARIOS } from '../data/scenarios';
 import { AudioRecorder } from './AudioRecorder';
 import { isMac } from '../utils/platform';
+import { formatClock } from '../utils/audio';
 
 export interface ScenarioSelection {
   num: number;
@@ -17,7 +18,7 @@ interface DropzoneProps {
     config: ParserConfig,
     scenario: ScenarioSelection,
     media: File | null,
-  ) => void;
+  ) => string | null;
 }
 
 const MEDIA_ACCEPT = 'video/*,audio/*,.mp4,.mov,.m4v,.webm,.m4a,.mp3,.wav,.aac,.ogg';
@@ -72,10 +73,41 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
   const [scenarioGender, setScenarioGender] = useState<'male' | 'female'>('male');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaLength, setMediaLength] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+
+  // A URL to play the take back from, torn down with the file it belongs to.
+  useEffect(() => {
+    setMediaLength(null);
+    if (!mediaFile) {
+      setMediaUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(mediaFile);
+    setMediaUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [mediaFile]);
+
+  // MediaRecorder webm carries no duration, so the player reports Infinity and
+  // its scrubber is dead. Seeking past the end forces the real length out.
+  const readLength = (event: React.SyntheticEvent<HTMLAudioElement>) => {
+    const el = event.currentTarget;
+    if (Number.isFinite(el.duration)) {
+      setMediaLength(el.duration);
+      return;
+    }
+    const settle = () => {
+      el.ontimeupdate = null;
+      el.currentTime = 0;
+      if (Number.isFinite(el.duration)) setMediaLength(el.duration);
+    };
+    el.ontimeupdate = settle;
+    el.currentTime = 1e101;
+  };
 
   // Errors sit below the upload box, which can be off screen after a long scroll.
   useEffect(() => {
@@ -111,17 +143,18 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
     }
     try {
       const json = JSON.parse(text);
-      onFileParsed(
+      const rejected = onFileParsed(
         json,
         mode,
         { functionKeyword, transferKeyword, endSessionKeyword },
         { num: activeScenario, gender: scenarioGender },
         mediaFile,
       );
-      setError(null);
-    } catch (err: any) {
-      console.error(err);
-      setError(`Error parsing JSON: ${err.message}`);
+      setError(rejected);
+    } catch (err) {
+      // Handled and shown to the user; no need to also throw a stack at the console.
+      const reason = err instanceof Error ? err.message : String(err);
+      setError(`That is not valid JSON. ${reason}`);
     }
   };
 
@@ -317,12 +350,16 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               <AudioLines />
             </div>
             <div className="media-slot-body">
-              <div className="media-slot-title">
+              <h3 className="panel-title media-slot-title">
                 1. Recording <span className="media-slot-optional">optional</span>
-              </div>
+              </h3>
               {mediaFile ? (
                 <span className="media-slot-file">
-                  {mediaFile.name} <span className="media-slot-size">{fileSize(mediaFile.size)}</span>
+                  {mediaFile.name}{' '}
+                  <span className="media-slot-size">
+                    {fileSize(mediaFile.size)}
+                    {mediaLength !== null && ` · ${formatClock(mediaLength)}`}
+                  </span>
                 </span>
               ) : (
                 <span className="media-slot-hint">
@@ -342,6 +379,15 @@ export function Dropzone({ onFileParsed }: DropzoneProps) {
               )}
             </div>
           </div>
+
+          {mediaUrl && (
+            <div className="media-preview">
+              <audio controls preload="metadata" src={mediaUrl} onLoadedMetadata={readLength} />
+              <span className="media-preview-hint">
+                Give it a listen before you carry on. You should hear yourself and the agent.
+              </span>
+            </div>
+          )}
 
           <AudioRecorder
             baseName="session-recording"

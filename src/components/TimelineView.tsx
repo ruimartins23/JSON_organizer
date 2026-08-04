@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import { endSessionIssue } from '../utils/parser';
-import type { OrganizedTimeline, ParsedEvent } from '../utils/parser';
+import type { OrganizedTimeline, ParsedEvent, EnvironmentMode, ParserConfig } from '../utils/parser';
 import { ReferenceDataPanel } from './ReferenceDataPanel';
 import { ScenarioCheck } from './ScenarioCheck';
 import { AudioTool } from './AudioTool';
@@ -17,6 +17,11 @@ import {
 interface TimelineViewProps {
   data: OrganizedTimeline;
   onReset: () => void;
+  /** Re-reads the loaded file as a different environment. */
+  onModeChange?: (mode: EnvironmentMode) => void;
+  /** The keywords the file was read with, and a way to read it again with others. */
+  config?: ParserConfig;
+  onConfigChange?: (config: ParserConfig) => void;
   scenario?: { num: number; gender: 'male' | 'female' };
   /** Recording picked on the upload page, if the user attached one there. */
   mediaFile?: File | null;
@@ -254,7 +259,61 @@ function downloadFile(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineViewProps) {
+/** A keyword the parser hunts for. Chips cover the usual pair; typing covers the rest. */
+function KeywordField({ label, value, options, onApply }: {
+  label: string;
+  value: string;
+  options: string[];
+  onApply: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  // Follow the value when the file is re-read under different settings.
+  useEffect(() => setDraft(value), [value]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && next !== value) onApply(next);
+    else setDraft(value);
+  };
+
+  return (
+    <div className="keyword-field">
+      <label className="field-label">{label}</label>
+      <input
+        className="text-input"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') setDraft(value);
+        }}
+      />
+      <div className="chip-row">
+        {options.map(option => (
+          <button
+            key={option}
+            className={`keyword-chip ${value === option ? 'active' : ''}`}
+            onClick={() => onApply(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function TimelineView({
+  data,
+  onReset,
+  onModeChange,
+  config,
+  onConfigChange,
+  scenario,
+  mediaFile,
+}: TimelineViewProps) {
+  const [showKeywords, setShowKeywords] = useState(false);
   const [copySummaryLabel, copySummary] = useCopyToClipboard('Copy Summary');
   const [copyTranscriptLabel, copyTranscript] = useCopyToClipboard('Copy Transcript');
   const [copySessionLabel, copySession] = useCopyToClipboard('Copy');
@@ -407,14 +466,62 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
             <Activity className="timeline-title-icon" />
             Session Analysis
           </h2>
-          <span className={`badge ${data.agentType === 'prod multi agent' ? 'accent' : 'primary'}`}>
-            {MODE_LABELS[data.agentType] || 'Unknown'}
-          </span>
+          {onModeChange ? (
+            <select
+              className={`header-mode ${data.agentType === 'prod multi agent' ? 'accent' : ''}`}
+              value={data.agentType}
+              title="Read this file again as a different environment"
+              onChange={e => onModeChange(e.target.value as EnvironmentMode)}
+            >
+              {Object.entries(MODE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          ) : (
+            <span className={`badge ${data.agentType === 'prod multi agent' ? 'accent' : 'primary'}`}>
+              {MODE_LABELS[data.agentType] || 'Unknown'}
+            </span>
+          )}
           <span className="header-events">{data.events.length} events</span>
+          {config && onConfigChange && (
+            <button className="link-btn" onClick={() => setShowKeywords(v => !v)}>
+              {showKeywords ? 'Hide tool keywords' : 'Tool keywords'}
+            </button>
+          )}
           <button onClick={onReset} className="btn-secondary header-reset">
             Upload New File
           </button>
         </div>
+
+        {showKeywords && config && onConfigChange && (
+          <div className="header-keywords animate-fade-in">
+            <KeywordField
+              label="Function tool"
+              value={config.functionKeyword}
+              options={['toolCall', 'PythonFunctionTool']}
+              onApply={v => onConfigChange({ ...config, functionKeyword: v })}
+            />
+            {data.agentType === 'prod multi agent' && (
+              <KeywordField
+                label="Transfer tool"
+                value={config.transferKeyword}
+                options={['agentTransfer', 'TransferToAgentTool']}
+                onApply={v => onConfigChange({ ...config, transferKeyword: v })}
+              />
+            )}
+            {data.agentType !== 'pre-prod' && (
+              <KeywordField
+                label="End session tool"
+                value={config.endSessionKeyword}
+                options={['toolCall', 'EndSessionTool']}
+                onApply={v => onConfigChange({ ...config, endSessionKeyword: v })}
+              />
+            )}
+            <p className="header-keywords-note">
+              Changing these reads the file again and clears any review marks.
+            </p>
+          </div>
+        )}
 
         {(data.sessionId || data.duration) && (
           <div className="facts-primary">
@@ -465,16 +572,8 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
         </div>
       </div>
 
-      <AudioTool
-        initialFile={mediaFile}
-        baseName={audioBaseName}
-        format={audioFormat}
-        onFormatChange={setAudioFormat}
-        onEncoderChange={setAudioEncoder}
-      />
-
       {data.transcriptNotes && data.transcriptNotes.length > 0 && (
-        <div className="glass warning-banner">
+        <div className="glass warning-banner info">
           <AlertTriangle className="icon" />
           <div>
             <h3>Check this transcript</h3>
@@ -491,12 +590,21 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
           <div>
             <h3>Environment Mismatch</h3>
             <p>
-              You are uploading a multi-agent JSON file (contains agent transfers) into a
-              single-agent environment. Please verify your environment settings.
+              This file has agent transfers in it, so it is a multi-agent session, but it was read
+              as single agent. Switch the environment at the top of this card to fix it, no need to
+              upload anything again.
             </p>
           </div>
         </div>
       )}
+
+      <AudioTool
+        initialFile={mediaFile}
+        baseName={audioBaseName}
+        format={audioFormat}
+        onFormatChange={setAudioFormat}
+        onEncoderChange={setAudioEncoder}
+      />
 
       <div className="export-section glass">
         <div className="export-header">
@@ -529,7 +637,8 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
                   value={taskNumber}
                   onChange={(e) => setTaskNumber(e.target.value)}
                   placeholder="e.g. 12"
-                  className="text-input"
+                  /* Without it every file is named "(task number)", which is easy to miss. */
+                  className={`text-input ${taskNumber.trim() ? '' : 'needed'}`}
                 />
               </div>
 
@@ -651,7 +760,7 @@ export function TimelineView({ data, onReset, scenario, mediaFile }: TimelineVie
                   className="flow-segment"
                   style={{ '--agent-h': agentHue(segment.agent.toLowerCase()), flexGrow: segment.count } as CSSProperties}
                   onClick={() => jumpToEvent(segment.startIndex)}
-                  title={`${segment.agent} — ${segment.count} event${segment.count > 1 ? 's' : ''} (click to jump)`}
+                  title={`${segment.agent}, ${segment.count} event${segment.count > 1 ? 's' : ''} (click to jump)`}
                 >
                   {segment.agent} <span className="flow-count">({segment.count})</span>
                 </button>
