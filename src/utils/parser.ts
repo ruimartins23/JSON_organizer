@@ -50,12 +50,21 @@ interface StreamRepair {
   /** recognitionResult entries belonging to a turn no assembled message covers. */
   keepRecognition: Set<unknown>;
   turnsRebuilt: number;
+  /** Cut-off assembled text, mapped to what the streamed fragments actually said. */
+  completions: Map<string, string>;
+  turnsCompleted: number;
 }
+
+/** A turn recorded mid-sentence ends on a dash rather than any real punctuation. */
+const CUT_OFF = /[\u2014\u2013-]+$/;
 
 function planStreamRepair(data: unknown): StreamRepair {
   const rebuilt = new Map<unknown, RebuiltTurn>();
   const keepRecognition = new Set<unknown>();
-  if (!Array.isArray(data)) return { rebuilt, keepRecognition, turnsRebuilt: 0 };
+  const completions = new Map<string, string>();
+  if (!Array.isArray(data)) {
+    return { rebuilt, keepRecognition, turnsRebuilt: 0, completions, turnsCompleted: 0 };
+  }
 
   const covered = new Set<number>();
   const text = new Map<number, string>();
@@ -64,6 +73,7 @@ function planStreamRepair(data: unknown): StreamRepair {
   // How many times each thing the user said already appears in an assembled
   // message. Counting rather than checking presence keeps a genuine repeat.
   const alreadyShown = new Map<string, number>();
+  const spokenByTurn = new Map<number, string[]>();
   const said = (value: string) => value.replace(/\s+/g, ' ').trim();
   let lastSpeaker = 'agent';
 
@@ -83,6 +93,7 @@ function planStreamRepair(data: unknown): StreamRepair {
           if (spoken) alreadyShown.set(spoken, (alreadyShown.get(spoken) ?? 0) + 1);
         } else if (role) {
           lastSpeaker = role;
+          if (spoken) spokenByTurn.set(turn, [...(spokenByTurn.get(turn) ?? []), spoken]);
         }
       });
     }
@@ -112,7 +123,29 @@ function planStreamRepair(data: unknown): StreamRepair {
     }
   });
 
-  return { rebuilt, keepRecognition, turnsRebuilt: rebuilt.size };
+  // An assembled line can stop mid-sentence on a dash while the fragments of the
+  // same turn carry the rest of it. Keep the finished wording.
+  spokenByTurn.forEach((lines, turn) => {
+    const joined = said(text.get(turn) ?? '');
+    if (!joined) return;
+    lines.forEach(line => {
+      if (!CUT_OFF.test(line)) return;
+      const prefix = line.replace(CUT_OFF, '').trim();
+      if (prefix.length < 12) return;
+      const at = joined.indexOf(prefix);
+      if (at < 0) return;
+      const full = joined.slice(at).trim();
+      if (full.length > prefix.length) completions.set(said(line), full);
+    });
+  });
+
+  return {
+    rebuilt,
+    keepRecognition,
+    turnsRebuilt: rebuilt.size,
+    completions,
+    turnsCompleted: completions.size,
+  };
 }
 
 /**
@@ -189,7 +222,13 @@ export function parseAITrainingJSON(
   const hasDiagnosticMessages = stringifiedData.includes('"diagnosticInfo"') && stringifiedData.includes('"chunks"');
   const repair = hasDiagnosticMessages
     ? planStreamRepair(data)
-    : { rebuilt: new Map<unknown, RebuiltTurn>(), keepRecognition: new Set<unknown>(), turnsRebuilt: 0 };
+    : {
+        rebuilt: new Map<unknown, RebuiltTurn>(),
+        keepRecognition: new Set<unknown>(),
+        turnsRebuilt: 0,
+        completions: new Map<string, string>(),
+        turnsCompleted: 0,
+      };
 
   // Attempt to extract session ID from agent-turn URIs
   const sessionMatch = stringifiedData.match(/\/([^/]+)\/agent-turn/);
@@ -560,6 +599,18 @@ export function parseAITrainingJSON(
     }
   });
 
+  // Messages are stitched together from chunks above, so a cut-off line can only
+  // be recognised now that it is whole again.
+  if (repair.completions.size > 0) {
+    finalEvents.forEach(event => {
+      if (event.type !== 'message' || !event.messageContent) return;
+      const trimmed = event.messageContent.trim();
+      if (!CUT_OFF.test(trimmed)) return;
+      const full = repair.completions.get(trimmed.replace(/\s+/g, ' '));
+      if (full) event.messageContent = full;
+    });
+  }
+
   return {
     agentType: mode,
     sessionId,
@@ -583,6 +634,14 @@ function checkTranscript(
   repair: StreamRepair,
 ): string[] | undefined {
   const notes: string[] = [];
+
+  if (repair.turnsCompleted > 0) {
+    notes.push(
+      `${repair.turnsCompleted} agent ${repair.turnsCompleted === 1 ? 'line was' : 'lines were'} ` +
+        `written down cut off mid sentence and ${repair.turnsCompleted === 1 ? 'has' : 'have'} been ` +
+        'completed from the streamed pieces.',
+    );
+  }
 
   if (repair.turnsRebuilt > 0) {
     notes.push(
