@@ -2444,6 +2444,28 @@ input, textarea, select {
 
 .recorder-steps strong { color: var(--text-secondary); }
 
+.count-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.count-toggle input { cursor: pointer; }
+
+/* Left in the timeline as a record, but taken out of the summary. */
+.timeline-row.not-counted .tool-line-name,
+.timeline-row.not-counted .badge {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.timeline-row.not-counted .row-review { opacity: 0.4; }
+
 .tool-line-warn {
   display: inline-flex;
   align-items: center;

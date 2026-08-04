@@ -180,7 +180,7 @@ function summaryLinesToText(lines: SummaryLine[], statuses: Record<string, Revie
     .trim();
 }
 
-function buildOutputs(data: OrganizedTimeline) {
+function buildOutputs(data: OrganizedTimeline, dropped: Record<string, boolean>) {
   const summaryLines: SummaryLine[] = [];
   let displayTranscript = '';
   let downloadTranscript = '';
@@ -212,6 +212,10 @@ function buildOutputs(data: OrganizedTimeline) {
   };
 
   data.events.forEach((event, idx) => {
+    // A call the reviewer marked as not counting leaves the list entirely, so the
+    // numbering closes up behind it.
+    if (event.type !== 'message' && dropped[eventKeyFor(idx)]) return;
+
     if (event.type === 'message') {
       appendMessage(event);
     } else if (event.type === 'transfer' && isMultiAgent) {
@@ -330,6 +334,8 @@ export function TimelineView({
   const [expandSignal, setExpandSignal] = useState({ version: 0, open: false });
   const [reviewStatus, setReviewStatus] = useState<Record<string, ReviewStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Calls the reviewer has taken out of the summary, keyed the same as reviews.
+  const [dropped, setDropped] = useState<Record<string, boolean>>({});
   const [fixtureFocus, setFixtureFocus] = useState<FixtureFocus | undefined>();
   const audioEncoderRef = useRef<((onProgress?: (f: number) => void) => Promise<Blob>) | null>(null);
   const [audioReady, setAudioReady] = useState(false);
@@ -345,8 +351,12 @@ export function TimelineView({
   useEffect(() => {
     setReviewStatus({});
     setNotes({});
+    setDropped({});
     setFixtureFocus(undefined);
   }, [data]);
+
+  const toggleDrop = (key: string) =>
+    setDropped(prev => ({ ...prev, [key]: !prev[key] }));
 
   const focusFixture = (match: { block: string; tableIndex: number; rowIndex: number }) => {
     setFixtureFocus({ ...match, nonce: Date.now() });
@@ -387,8 +397,8 @@ export function TimelineView({
   }, [data.events]);
 
   const { summaryLines, displayTranscriptText, downloadTranscriptText } = useMemo(
-    () => buildOutputs(data),
-    [data]
+    () => buildOutputs(data, dropped),
+    [data, dropped]
   );
 
   const summaryText = useMemo(
@@ -400,7 +410,9 @@ export function TimelineView({
     () => summaryLines.filter(l => l.kind === 'function' || l.kind === 'transfer').length,
     [summaryLines]
   );
-  const reviewedCount = Object.keys(reviewStatus).length;
+  const reviewedCount = summaryLines.filter(
+    line => (line.kind === 'function' || line.kind === 'transfer') && reviewStatus[line.key],
+  ).length;
 
   const flowSegments = useMemo(() => buildFlowSegments(data.events), [data.events]);
 
@@ -831,6 +843,8 @@ export function TimelineView({
             onReview={toggleReview}
             note={notes[eventKeyFor(globalIndex)]}
             onNote={setNote}
+            counted={!dropped[eventKeyFor(globalIndex)]}
+            onToggleCount={toggleDrop}
             referenceData={data.referenceData}
             onFixtureFocus={focusFixture}
             offsetLabel={
@@ -871,12 +885,14 @@ interface TimelineItemProps {
   onReview: (key: string, status: ReviewStatus) => void;
   note?: string;
   onNote: (key: string, value: string) => void;
+  counted: boolean;
+  onToggleCount: (key: string) => void;
   referenceData?: Record<string, unknown>;
   onFixtureFocus: (match: { block: string; tableIndex: number; rowIndex: number }) => void;
   offsetLabel?: string;
 }
 
-function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, referenceData, onFixtureFocus, offsetLabel }: TimelineItemProps) {
+function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, counted, onToggleCount, referenceData, onFixtureFocus, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
   // Open by default if this row already has a note; can be collapsed without losing it.
   const [noteOpen, setNoteOpen] = useState(!!note);
@@ -935,7 +951,7 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
   return (
     <div
       id={`event-row-${globalIndex}`}
-      className={`timeline-row type-${event.type} animate-slide-up ${reviewStatus ? `review-${reviewStatus}` : ''}`}
+      className={`${counted ? '' : 'not-counted '}timeline-row type-${event.type} animate-slide-up ${reviewStatus ? `review-${reviewStatus}` : ''}`}
       style={{ animationDelay: `${Math.min(index * 40, 800)}ms` }}
     >
       <div className="timeline-row-main">
@@ -964,10 +980,24 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
               <span className="tool-line-count">({event.duplicateCount}x)</span>
             )}
             {endSessionIssue(event) && (
-              <span className="tool-line-warn" title={`end_session ${endSessionIssue(event)}`}>
-                <AlertTriangle className="btn-icon-sm" />
-                executed without a valid response
-              </span>
+              <>
+                <span className="tool-line-warn" title={`end_session ${endSessionIssue(event)}`}>
+                  <AlertTriangle className="btn-icon-sm" />
+                  executed without a valid response
+                </span>
+                <label
+                  className="count-toggle"
+                  title="Untick to leave this call out of the Function and Transfer Summary you copy"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={counted}
+                    onChange={() => onToggleCount(eventKeyFor(globalIndex))}
+                  />
+                  Include in summary
+                </label>
+              </>
             )}
             {reviewStatus && (
               <span className={`tool-review-suffix ${reviewStatus}`}>
