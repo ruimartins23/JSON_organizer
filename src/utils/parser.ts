@@ -248,6 +248,11 @@ export function parseAITrainingJSON(
 
   let hasEnvironmentMismatch = false;
 
+  // Some sessions never record an end_session tool call and simply close with a
+  // top-level endSession marker. Held back until the end, because most sessions
+  // carry the marker as well as the real call and must not show both.
+  const endMarkers: ParsedEvent[] = [];
+
   // Recursively search the JSON for useful objects
   function traverse(obj: any, parentAgent?: string, structuralKey?: string, parentTime?: string) {
     if (!obj || typeof obj !== 'object') return;
@@ -277,6 +282,19 @@ export function parseAITrainingJSON(
     }
 
     const currentAgent = obj.agent || obj.role || obj.agentName || parentAgent;
+
+    if (obj.endSession && typeof obj.endSession === 'object' && !Array.isArray(obj.endSession)) {
+      const metadata = obj.endSession.metadata ?? obj.endSession;
+      endMarkers.push({
+        id: extractId(obj) || generateId(),
+        type: 'endsession',
+        toolName: 'end_session',
+        arguments: metadata,
+        timestamp: currentTime,
+        raw: { agent: currentAgent, ...obj },
+      });
+    }
+
 
     // Identify tool name and arguments explicitly
     let toolName = '';
@@ -604,6 +622,16 @@ export function parseAITrainingJSON(
       }
     }
   });
+
+  // Nothing recorded the call itself, so the session's own closing record is the
+  // only evidence it ended, and the reviewer should see it. Pre-prod files the
+  // real call as an ordinary function, so go by the name rather than the type.
+  const alreadyRecorded = finalEvents.some(
+    event => event.type === 'endsession' || /end[\s_]?session/i.test(event.toolName ?? ''),
+  );
+  if (endMarkers.length > 0 && !alreadyRecorded) {
+    finalEvents.push(endMarkers[0]);
+  }
 
   // Messages are stitched together from chunks above, so a cut-off line can only
   // be recognised now that it is whole again.
