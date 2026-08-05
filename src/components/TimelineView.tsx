@@ -845,6 +845,7 @@ export function TimelineView({
             onNote={setNote}
             counted={!dropped[eventKeyFor(globalIndex)]}
             onToggleCount={toggleDrop}
+            allEvents={data.events}
             referenceData={data.referenceData}
             onFixtureFocus={focusFixture}
             offsetLabel={
@@ -887,12 +888,14 @@ interface TimelineItemProps {
   onNote: (key: string, value: string) => void;
   counted: boolean;
   onToggleCount: (key: string) => void;
+  /** Needed to tell a lone end_session apart from one of several. */
+  allEvents: ParsedEvent[];
   referenceData?: Record<string, unknown>;
   onFixtureFocus: (match: { block: string; tableIndex: number; rowIndex: number }) => void;
   offsetLabel?: string;
 }
 
-function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, counted, onToggleCount, referenceData, onFixtureFocus, offsetLabel }: TimelineItemProps) {
+function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, onReview, note, onNote, counted, onToggleCount, allEvents, referenceData, onFixtureFocus, offsetLabel }: TimelineItemProps) {
   const [expanded, setExpanded] = useState(false);
   // Open by default if this row already has a note; can be collapsed without losing it.
   const [noteOpen, setNoteOpen] = useState(!!note);
@@ -979,9 +982,9 @@ function TimelineItem({ event, index, globalIndex, expandSignal, reviewStatus, o
             {event.duplicateCount && event.duplicateCount > 1 && (
               <span className="tool-line-count">({event.duplicateCount}x)</span>
             )}
-            {endSessionIssue(event) && (
+            {endSessionIssue(event, allEvents) && (
               <>
-                <span className="tool-line-warn" title={`end_session ${endSessionIssue(event)}`}>
+                <span className="tool-line-warn" title={`end_session ${endSessionIssue(event, allEvents)}`}>
                   <AlertTriangle className="btn-icon-sm" />
                   executed without a valid response
                 </span>

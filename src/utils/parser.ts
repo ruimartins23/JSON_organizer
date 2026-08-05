@@ -148,13 +148,27 @@ function planStreamRepair(data: unknown): StreamRepair {
   };
 }
 
+/** True when the tool answered `result: "done"`, which is how a real one lands. */
+function endSessionSucceeded(event: ParsedEvent): boolean {
+  const response = event.response;
+  if (typeof response !== 'object' || response === null) return false;
+  const result = (response as Record<string, unknown>).result;
+  return typeof result === 'string' && result.trim().toLowerCase() === 'done';
+}
+
 /**
- * end_session has only really landed when the tool answers `result: "done"`.
- * The same call also shows up mid-flight with no response, or answering in
- * some other shape, and those look identical in the timeline otherwise.
+ * A session can record end_session more than once, and only the copy answering
+ * `result: "done"` is the one that counted. Worth pointing out the others, but
+ * only when such a copy exists: plenty of sessions log a single end_session with
+ * no response at all, and that one is simply the call.
  */
-export function endSessionIssue(event: ParsedEvent): string | null {
-  if (event.type !== 'endsession') return null;
+export function endSessionIssue(event: ParsedEvent, events: ParsedEvent[]): string | null {
+  if (event.type !== 'endsession' || endSessionSucceeded(event)) return null;
+
+  const answeredElsewhere = events.some(
+    other => other !== event && other.type === 'endsession' && endSessionSucceeded(other),
+  );
+  if (!answeredElsewhere) return null;
 
   const response = event.response;
   const isEmpty =
@@ -163,14 +177,6 @@ export function endSessionIssue(event: ParsedEvent): string | null {
     response === '' ||
     (typeof response === 'object' && Object.keys(response).length === 0);
   if (isEmpty) return 'came back with no response at all';
-
-  // Only a result field counts. A bare "done", which is what a response: "done"
-  // collapses to, is the exact case this is here to catch.
-  const result =
-    typeof response === 'object' && response !== null
-      ? (response as Record<string, unknown>).result
-      : undefined;
-  if (typeof result === 'string' && result.trim().toLowerCase() === 'done') return null;
 
   const shown = JSON.stringify(response);
   return `did not return result: done${shown && shown.length <= 60 ? ` (got ${shown})` : ''}`;
@@ -670,15 +676,31 @@ function checkTranscript(
       );
     }
 
-    const turns = new Set<number>();
+    // Only turns where the agent actually said something. A session can end with
+    // the agent silent, and an empty turn is not a missing one.
+    const turnsWithSpeech = new Set<number>();
     data.forEach(entry => {
-      const turn = entry?.sessionOutput?.turnIndex;
-      if (typeof turn === 'number') turns.add(turn);
+      const output = entry?.sessionOutput;
+      const turn = output?.turnIndex;
+      if (typeof turn !== 'number') return;
+      if (typeof output.text === 'string' && output.text.trim() !== '') {
+        turnsWithSpeech.add(turn);
+        return;
+      }
+      (output.diagnosticInfo?.messages ?? []).forEach((message: any) => {
+        const role = typeof message?.role === 'string' ? message.role : '';
+        if (role.toLowerCase() === 'user') return;
+        const words = (message?.chunks ?? [])
+          .map((chunk: any) => chunk?.transcript ?? '')
+          .join('')
+          .trim();
+        if (words) turnsWithSpeech.add(turn);
+      });
     });
     const agentTurns = spoken.filter(e => (e.messageRole ?? '').toLowerCase() !== 'user').length;
-    if (turns.size > 0 && agentTurns < turns.size) {
+    if (turnsWithSpeech.size > 0 && agentTurns < turnsWithSpeech.size) {
       notes.push(
-        `The file has ${turns.size} agent turns but only ${agentTurns} came through. ` +
+        `The file has ${turnsWithSpeech.size} agent turns but only ${agentTurns} came through. ` +
           'Some of what the agent said is probably missing here.',
       );
     }
