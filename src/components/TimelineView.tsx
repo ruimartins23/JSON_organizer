@@ -612,7 +612,6 @@ export function TimelineView({
 
       <AudioTool
         initialFile={mediaFile}
-        baseName={audioBaseName}
         format={audioFormat}
         onFormatChange={setAudioFormat}
         onEncoderChange={setAudioEncoder}

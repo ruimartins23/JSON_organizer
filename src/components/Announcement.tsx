@@ -32,7 +32,7 @@ export function Announcement() {
       <div className="announcement-body">
         <h3 className="announcement-title">Quick update</h3>
         <p>
-          Hey guys! You can stop using OBS. On this page, hit <strong>Record the call</strong>
+          Hey guys! You can stop using OBS. On this page, hit <strong>Record the call</strong>{' '}
           before you start talking to the agent. When the call is done and you finally get the JSON,
           paste it in below and the recording is already there waiting to be trimmed.
         </p>

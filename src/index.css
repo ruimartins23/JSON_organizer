@@ -2133,7 +2133,7 @@ input, textarea, select {
   display: block;
   width: 100%;
   height: 120px;
-  cursor: text;
+  cursor: col-resize;
   border-radius: var(--radius-sm);
 }
 
@@ -2196,13 +2196,12 @@ input, textarea, select {
   bottom: 0;
   width: 16px;
   margin-left: -8px;
-  cursor: grab;
   display: flex;
   justify-content: center;
   z-index: 4;
+  /* Shows where playback is; it is not something to grab. */
+  pointer-events: none;
 }
-
-.audio-cursor:active { cursor: grabbing; }
 
 .audio-cursor::before {
   content: '';
@@ -2235,6 +2234,8 @@ input, textarea, select {
   align-items: center;
   gap: 0.85rem;
   flex-wrap: wrap;
+  /* Its own row, clear of the file and format controls above it. */
+  margin-top: 1.15rem;
 }
 
 .transport-play {

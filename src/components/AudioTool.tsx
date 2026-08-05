@@ -6,8 +6,6 @@ import type { AudioFormat } from '../utils/audio';
 interface AudioToolProps {
   /** Recording attached on the upload page, loaded automatically when present. */
   initialFile?: File | null;
-  /** Name the exported file will use, minus the extension. */
-  baseName: string;
   format: AudioFormat;
   onFormatChange: (format: AudioFormat) => void;
   /** Hands up an encoder for the current file and trim, or null when no file is loaded. */
@@ -15,7 +13,7 @@ interface AudioToolProps {
 }
 
 const BUCKETS = 700;
-type Drag = 'start' | 'end' | 'cursor' | null;
+type Drag = 'start' | 'end' | null;
 
 /** mm:ss.s — precise enough to trim on, still readable. */
 function preciseClock(seconds: number): string {
@@ -23,13 +21,12 @@ function preciseClock(seconds: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
 }
 
-export function AudioTool({ initialFile, baseName, format, onFormatChange, onEncoderChange }: AudioToolProps) {
+export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange }: AudioToolProps) {
   const [open, setOpen] = useState(!!initialFile);
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [sourceName, setSourceName] = useState('');
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
-  const [cursor, setCursor] = useState(0);
   const [status, setStatus] = useState<'idle' | 'decoding'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -46,7 +43,6 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
   const peaks = useMemo(() => (buffer ? waveformPeaks(buffer, BUCKETS) : []), [buffer]);
   const duration = buffer?.duration ?? 0;
   const trimmed = Math.max(0, end - start);
-  const fileName = `${baseName}.${format}`;
   const pct = (t: number) => (duration ? (t / duration) * 100 : 0);
 
   const stopPlayback = useCallback(() => {
@@ -70,7 +66,6 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
       setSourceName(file.name);
       setStart(0);
       setEnd(decoded.duration);
-      setCursor(0);
     } catch {
       setError('Could not read audio from that file. Try an .mp4, .mov, .m4a, .mp3 or .wav.');
       setBuffer(null);
@@ -109,32 +104,15 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     tick();
   }, [buffer, start, end, stopPlayback]);
 
-  /** Plays the kept part. Restarts from the beginning of it once at the end. */
+  /** Plays exactly what will be saved, from the beginning of it. */
   const playSelection = () => {
     if (playing) return stopPlayback();
-    const from = cursor >= end - 0.05 || cursor < start ? start : cursor;
-    playFrom(from);
-  };
-
-  /** Puts a boundary exactly where the playhead is, which is where the ear found it. */
-  const cutAt = (which: 'start' | 'end') => {
-    const at = playhead ?? cursor;
-    if (which === 'start') {
-      const next = Math.max(0, Math.min(at, end - 0.2));
-      setStart(next);
-      setCursor(c => Math.max(c, next));
-    } else {
-      const next = Math.min(duration, Math.max(at, start + 0.2));
-      setEnd(next);
-      setCursor(c => Math.min(c, next));
-    }
-    if (playing) stopPlayback();
+    playFrom(start);
   };
 
   const resetTrim = () => {
     setStart(0);
     setEnd(duration);
-    setCursor(0);
     stopPlayback();
   };
 
@@ -142,12 +120,6 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     if (e.key === ' ' || e.key === 'Spacebar') {
       e.preventDefault();
       playSelection();
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      const step = e.shiftKey ? 5 : 1;
-      const at = (playhead ?? cursor) + (e.key === 'ArrowLeft' ? -step : step);
-      if (playing) stopPlayback();
-      setCursor(Math.min(Math.max(at, start), end));
     }
   };
 
@@ -185,31 +157,24 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
   const onTrackMove = (e: React.PointerEvent) => {
     if (!dragRef.current || !buffer) return;
     const t = timeAt(e.clientX);
-    if (dragRef.current === 'start') {
-      const next = Math.min(t, end - 0.2);
-      setStart(next);
-      setCursor(c => Math.max(c, next));
-    } else if (dragRef.current === 'end') {
-      const next = Math.max(t, start + 0.2);
-      setEnd(next);
-      setCursor(c => Math.min(c, next));
-    } else {
-      setCursor(Math.min(Math.max(t, start), end));
-    }
+    if (dragRef.current === 'start') setStart(Math.min(t, end - 0.2));
+    else if (dragRef.current === 'end') setEnd(Math.max(t, start + 0.2));
   };
 
   const endDrag = () => {
-    if (dragRef.current === 'cursor' && playing) playFrom(cursor);
     dragRef.current = null;
   };
 
-  /** Clicking the waveform moves the playhead. Seek first, capture after, so a
-   *  refused capture cannot swallow the click. */
-  const seekTo = (e: React.PointerEvent) => {
+  /** Clicking the wave takes hold of the nearer edge and moves it there, so the
+   *  only idea to grasp is "these two edges are what I keep". */
+  const grabNearestEdge = (e: React.PointerEvent) => {
     if (!buffer) return;
-    setCursor(Math.min(Math.max(timeAt(e.clientX), start), end));
+    const at = timeAt(e.clientX);
+    const edge: Drag = Math.abs(at - start) <= Math.abs(at - end) ? 'start' : 'end';
+    dragRef.current = edge;
+    if (edge === 'start') setStart(Math.min(at, end - 0.2));
+    else setEnd(Math.max(at, start + 0.2));
     if (playing) stopPlayback();
-    dragRef.current = 'cursor';
     capture(e.pointerId);
   };
 
@@ -244,8 +209,6 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
     });
     // `open` matters: the canvas is unmounted while collapsed, so re-expanding needs a redraw.
   }, [peaks, buffer, start, end, open]);
-
-  const cursorAt = playhead ?? cursor;
 
   return (
     <div className={`audio-panel glass ${open ? '' : 'collapsed'}`}>
@@ -297,7 +260,7 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
                   {playing ? <Pause className="btn-icon" /> : <Play className="btn-icon" />}
                   {playing ? 'Pause' : 'Play selection'}
                 </button>
-                <span className="transport-time">{preciseClock(cursorAt)}</span>
+                <span className="transport-time">{preciseClock(playhead ?? start)}</span>
                 <span className="transport-keep">
                   <Scissors className="btn-icon-sm" />
                   Keeping <strong>{formatClock(trimmed)}</strong> of {formatClock(duration)}
@@ -316,19 +279,17 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
               >
-                <canvas ref={canvasRef} className="audio-wave" onPointerDown={seekTo} />
+                <canvas ref={canvasRef} className="audio-wave" onPointerDown={grabNearestEdge} />
 
                 {/* Everything outside the selection is dimmed */}
                 <div className="audio-dim" style={{ left: 0, width: `${pct(start)}%` }} />
                 <div className="audio-dim" style={{ left: `${pct(end)}%`, right: 0 }} />
 
-                <div
-                  className="audio-cursor"
-                  style={{ left: `${pct(cursorAt)}%` }}
-                  onPointerDown={beginDrag('cursor')}
-                >
-                  <span className="audio-cursor-grip" />
-                </div>
+                {playhead !== null && (
+                  <div className="audio-cursor" style={{ left: `${pct(playhead)}%` }}>
+                    <span className="audio-cursor-grip" />
+                  </div>
+                )}
 
                 <div
                   className="audio-handle start"
@@ -349,32 +310,26 @@ export function AudioTool({ initialFile, baseName, format, onFormatChange, onEnc
               </div>
 
               <p className="trim-help">
-                Click the wave to move the yellow playhead, then cut at exactly that point with the
-                buttons below. Space plays and pauses, arrow keys step it along.
+                Drag the two blue edges so only the part you want stays lit, or click the wave to
+                pull the nearer edge across. Play checks it. Space plays and pauses.
               </p>
 
               <div className="trim-rows">
                 <div className="trim-side">
-                  <span className="field-label">Start</span>
+                  <span className="field-label">Starts at</span>
                   <span className="trim-time">{preciseClock(start)}</span>
                   <button className="btn-secondary" onClick={() => nudge('start', -1)} title="One second earlier">−1s</button>
                   <button className="btn-secondary" onClick={() => nudge('start', 1)} title="One second later">+1s</button>
-                  <button className="btn-secondary snap" onClick={() => cutAt('start')}>
-                    Cut start at playhead
-                  </button>
                 </div>
                 <div className="trim-side">
-                  <span className="field-label">End</span>
+                  <span className="field-label">Ends at</span>
                   <span className="trim-time">{preciseClock(end)}</span>
                   <button className="btn-secondary" onClick={() => nudge('end', -1)} title="One second earlier">−1s</button>
                   <button className="btn-secondary" onClick={() => nudge('end', 1)} title="One second later">+1s</button>
-                  <button className="btn-secondary snap" onClick={() => cutAt('end')}>
-                    Cut end at playhead
-                  </button>
                 </div>
               </div>
 
-              <p className="audio-note">Saved as {fileName} when you download.</p>
+              <p className="audio-note">When you download the files, it applies the cut.</p>
             </>
           )}
         </div>
