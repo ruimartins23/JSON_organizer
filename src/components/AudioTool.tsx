@@ -13,7 +13,7 @@ interface AudioToolProps {
 }
 
 const BUCKETS = 700;
-type Drag = 'start' | 'end' | null;
+type Drag = 'start' | 'end' | 'cursor' | null;
 
 /** mm:ss.s — precise enough to trim on, still readable. */
 function preciseClock(seconds: number): string {
@@ -27,6 +27,7 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
   const [sourceName, setSourceName] = useState('');
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
+  const [cursor, setCursor] = useState(0);
   const [status, setStatus] = useState<'idle' | 'decoding'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -66,6 +67,7 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
       setSourceName(file.name);
       setStart(0);
       setEnd(decoded.duration);
+      setCursor(0);
     } catch {
       setError('Could not read audio from that file. Try an .mp4, .mov, .m4a, .mp3 or .wav.');
       setBuffer(null);
@@ -85,7 +87,7 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
     nodeRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
-    const begin = Math.min(Math.max(from, start), Math.max(start, end - 0.05));
+    const begin = Math.min(Math.max(from, 0), Math.max(0, end - 0.05));
     const ctx = ctxRef.current ?? new AudioContext();
     ctxRef.current = ctx;
     const node = ctx.createBufferSource();
@@ -102,17 +104,18 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
       rafRef.current = requestAnimationFrame(tick);
     };
     tick();
-  }, [buffer, start, end, stopPlayback]);
+  }, [buffer, end, stopPlayback]);
 
-  /** Plays exactly what will be saved, from the beginning of it. */
+  /** Plays from the cursor to the end edge, restarting at the start when spent. */
   const playSelection = () => {
     if (playing) return stopPlayback();
-    playFrom(start);
+    playFrom(cursor >= end - 0.05 ? start : cursor);
   };
 
   const resetTrim = () => {
     setStart(0);
     setEnd(duration);
+    setCursor(0);
     stopPlayback();
   };
 
@@ -159,22 +162,20 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
     const t = timeAt(e.clientX);
     if (dragRef.current === 'start') setStart(Math.min(t, end - 0.2));
     else if (dragRef.current === 'end') setEnd(Math.max(t, start + 0.2));
+    else setCursor(t);
   };
 
   const endDrag = () => {
     dragRef.current = null;
   };
 
-  /** Clicking the wave takes hold of the nearer edge and moves it there, so the
-   *  only idea to grasp is "these two edges are what I keep". */
-  const grabNearestEdge = (e: React.PointerEvent) => {
+  /** Clicking or dragging the wave moves the play cursor and nothing else. The
+   *  two edges only move when their own handles are dragged. */
+  const seekCursor = (e: React.PointerEvent) => {
     if (!buffer) return;
-    const at = timeAt(e.clientX);
-    const edge: Drag = Math.abs(at - start) <= Math.abs(at - end) ? 'start' : 'end';
-    dragRef.current = edge;
-    if (edge === 'start') setStart(Math.min(at, end - 0.2));
-    else setEnd(Math.max(at, start + 0.2));
+    setCursor(timeAt(e.clientX));
     if (playing) stopPlayback();
+    dragRef.current = 'cursor';
     capture(e.pointerId);
   };
 
@@ -258,9 +259,9 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
               <div className="audio-transport">
                 <button className="btn-primary transport-play" onClick={playSelection}>
                   {playing ? <Pause className="btn-icon" /> : <Play className="btn-icon" />}
-                  {playing ? 'Pause' : 'Play selection'}
+                  {playing ? 'Pause' : 'Play'}
                 </button>
-                <span className="transport-time">{preciseClock(playhead ?? start)}</span>
+                <span className="transport-time">{preciseClock(playhead ?? cursor)}</span>
                 <span className="transport-keep">
                   <Scissors className="btn-icon-sm" />
                   Keeping <strong>{formatClock(trimmed)}</strong> of {formatClock(duration)}
@@ -279,17 +280,15 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
               >
-                <canvas ref={canvasRef} className="audio-wave" onPointerDown={grabNearestEdge} />
+                <canvas ref={canvasRef} className="audio-wave" onPointerDown={seekCursor} />
 
                 {/* Everything outside the selection is dimmed */}
                 <div className="audio-dim" style={{ left: 0, width: `${pct(start)}%` }} />
                 <div className="audio-dim" style={{ left: `${pct(end)}%`, right: 0 }} />
 
-                {playhead !== null && (
-                  <div className="audio-cursor" style={{ left: `${pct(playhead)}%` }}>
-                    <span className="audio-cursor-grip" />
-                  </div>
-                )}
+                <div className="audio-cursor" style={{ left: `${pct(playhead ?? cursor)}%` }}>
+                  <span className="audio-cursor-grip" />
+                </div>
 
                 <div
                   className="audio-handle start"
@@ -310,8 +309,8 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
               </div>
 
               <p className="trim-help">
-                Drag the two blue edges so only the part you want stays lit, or click the wave to
-                pull the nearer edge across. Play checks it. Space plays and pauses.
+                Click anywhere on the wave to listen from there. Drag the two blue edges to set what
+                you keep: the lit part is what gets saved. Space plays and pauses.
               </p>
 
               <div className="trim-rows">

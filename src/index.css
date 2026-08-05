@@ -2133,7 +2133,7 @@ input, textarea, select {
   display: block;
   width: 100%;
   height: 120px;
-  cursor: col-resize;
+  cursor: pointer;
   border-radius: var(--radius-sm);
 }
 
