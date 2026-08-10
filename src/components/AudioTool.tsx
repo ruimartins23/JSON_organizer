@@ -28,6 +28,7 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(0);
   const [cursor, setCursor] = useState(0);
+  const [rate, setRate] = useState(1);
   const [status, setStatus] = useState<'idle' | 'decoding'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -40,6 +41,10 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
   const nodeRef = useRef<AudioBufferSourceNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const dragRef = useRef<Drag>(null);
+  const rateRef = useRef(1);
+  /** Where playback was anchored: a position in the clip, and the clock time it
+   *  started from. Rebased on a speed change so the playhead stays honest. */
+  const anchorRef = useRef({ at: 0, clock: 0 });
 
   const peaks = useMemo(() => (buffer ? waveformPeaks(buffer, BUCKETS) : []), [buffer]);
   const duration = buffer?.duration ?? 0;
@@ -90,17 +95,23 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
     const begin = Math.min(Math.max(from, 0), Math.max(0, end - 0.05));
     const ctx = ctxRef.current ?? new AudioContext();
     ctxRef.current = ctx;
+    // A context built outside a user gesture comes up suspended: its clock never
+    // moves, so nothing is heard and the playhead sits still saying "Pause".
+    if (ctx.state === 'suspended') void ctx.resume();
     const node = ctx.createBufferSource();
     node.buffer = buffer;
     node.connect(ctx.destination);
-    const startedAt = ctx.currentTime;
+    node.playbackRate.value = rateRef.current;
     node.onended = () => stopPlayback();
+    // The length is in clip seconds, so a faster rate simply gets there sooner.
     node.start(0, begin, Math.max(0.05, end - begin));
     nodeRef.current = node;
+    anchorRef.current = { at: begin, clock: ctx.currentTime };
     setPlaying(true);
 
     const tick = () => {
-      setPlayhead(begin + (ctx.currentTime - startedAt));
+      const { at, clock } = anchorRef.current;
+      setPlayhead(at + (ctx.currentTime - clock) * rateRef.current);
       rafRef.current = requestAnimationFrame(tick);
     };
     tick();
@@ -110,6 +121,20 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
   const playSelection = () => {
     if (playing) return stopPlayback();
     playFrom(cursor >= end - 0.05 ? start : cursor);
+  };
+
+  /** Changes speed without the playhead jumping: bank the position reached at
+   *  the old rate, then start counting again at the new one. */
+  const changeRate = (next: number) => {
+    const ctx = ctxRef.current;
+    const node = nodeRef.current;
+    if (ctx && node) {
+      const { at, clock } = anchorRef.current;
+      anchorRef.current = { at: at + (ctx.currentTime - clock) * rateRef.current, clock: ctx.currentTime };
+      node.playbackRate.value = next;
+    }
+    rateRef.current = next;
+    setRate(next);
   };
 
   const resetTrim = () => {
@@ -262,6 +287,17 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
                   {playing ? 'Pause' : 'Play'}
                 </button>
                 <span className="transport-time">{preciseClock(playhead ?? cursor)}</span>
+                <div className="segmented-control compact speed-control" title="Playback speed. The saved file is always normal speed.">
+                  {[1, 1.5, 2].map(r => (
+                    <button
+                      key={r}
+                      className={`segment-btn ${rate === r ? 'active' : ''}`}
+                      onClick={() => changeRate(r)}
+                    >
+                      {r}x
+                    </button>
+                  ))}
+                </div>
                 <span className="transport-keep">
                   <Scissors className="btn-icon-sm" />
                   Keeping <strong>{formatClock(trimmed)}</strong> of {formatClock(duration)}

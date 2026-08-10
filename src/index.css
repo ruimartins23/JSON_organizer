@@ -2251,6 +2251,12 @@ input, textarea, select {
   color: #fbbf24;
 }
 
+.speed-control .segment-btn {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .transport-keep {
   display: inline-flex;
   align-items: center;
