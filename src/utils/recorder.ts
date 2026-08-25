@@ -47,11 +47,26 @@ export interface RecordOptions {
 
 const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
 
+/**
+ * Only Chromium captures audio from a shared tab. Firefox and Safari both have
+ * getDisplayMedia and both hand back video with no audio track, so checking that
+ * the method exists is not enough: it lets people through the share dialog only
+ * to fail at the end with advice about a pane their browser does not have.
+ */
+function capturesTabAudio(): boolean {
+  const agent = navigator as Navigator & { userAgentData?: { brands?: { brand: string }[] } };
+  const brands = agent.userAgentData?.brands;
+  if (brands?.length) return brands.some(b => /chromium/i.test(b.brand));
+  const ua = navigator.userAgent;
+  return /chrome|chromium|edg\//i.test(ua) && !/firefox|fxios/i.test(ua);
+}
+
 export function canRecord(): boolean {
   return (
     typeof navigator.mediaDevices?.getDisplayMedia === 'function' &&
     typeof navigator.mediaDevices?.getUserMedia === 'function' &&
-    typeof window.MediaRecorder === 'function'
+    typeof window.MediaRecorder === 'function' &&
+    capturesTabAudio()
   );
 }
 
