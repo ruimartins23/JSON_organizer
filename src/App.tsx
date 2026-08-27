@@ -8,6 +8,7 @@ import type { OrganizedTimeline, EnvironmentMode, ParserConfig } from './utils/p
 import { BrainCircuit } from 'lucide-react';
 // The /react entry point, not /next: this is a Vite SPA.
 import { Analytics } from '@vercel/analytics/react';
+import { ThemeToggle } from './components/ThemeToggle';
 
 function App() {
   const [timelineData, setTimelineData] = useState<OrganizedTimeline | null>(null);
@@ -67,6 +68,8 @@ function App() {
 
   return (
     <div className="gradient-bg app-container">
+      <ThemeToggle />
+
       <header className={`header animate-fade-in ${timelineData ? 'compact' : ''}`}>
         <div className="header-icon-container glass">
           <BrainCircuit className="header-icon" />

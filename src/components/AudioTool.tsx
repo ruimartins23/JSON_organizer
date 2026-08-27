@@ -223,6 +223,13 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
 
+    // Painted, not styled, so the colours have to be read off the theme.
+    const style = getComputedStyle(canvas);
+    const waveColours = {
+      lit: style.getPropertyValue('--wave-lit').trim() || 'rgba(96,165,250,0.95)',
+      dim: style.getPropertyValue('--wave-dim').trim() || 'rgba(148,163,184,0.18)',
+    };
+
     const x0 = (start / buffer.duration) * w;
     const x1 = (end / buffer.duration) * w;
     const barW = w / peaks.length;
@@ -230,7 +237,7 @@ export function AudioTool({ initialFile, format, onFormatChange, onEncoderChange
       const x = i * barW;
       const inRange = x >= x0 && x <= x1;
       const barH = Math.max(1, peak * (h - 12));
-      g.fillStyle = inRange ? 'rgba(96,165,250,0.95)' : 'rgba(148,163,184,0.18)';
+      g.fillStyle = inRange ? waveColours.lit : waveColours.dim;
       g.fillRect(x, (h - barH) / 2, Math.max(0.8, barW - 0.4), barH);
     });
     // `open` matters: the canvas is unmounted while collapsed, so re-expanding needs a redraw.
